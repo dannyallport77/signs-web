@@ -79,42 +79,42 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900">Quick Actions</h3>
           <div className="space-y-3">
-            <a
-              href="/dashboard/stock"
-              className="block bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 text-center"
+            <button
+              onClick={() => window.location.href = '/dashboard/stock'}
+              className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
             >
               Manage Stock
-            </a>
-            <a
-              href="/dashboard/users"
-              className="block bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 text-center"
+            </button>
+            <button
+              onClick={() => window.location.href = '/dashboard/users'}
+              className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
             >
               Manage Users
-            </a>
-            <a
-              href="/dashboard/nfc-tags"
-              className="block bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 text-center"
+            </button>
+            <button
+              onClick={() => window.location.href = '/dashboard/nfc-tags'}
+              className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors"
             >
               View NFC Tags
-            </a>
+            </button>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">System Info</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900">System Info</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Version:</span>
+              <span className="text-gray-900 font-medium">Version:</span>
               <span className="font-medium">1.0.0</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Database:</span>
+              <span className="text-gray-900 font-medium">Database:</span>
               <span className="font-medium">SQLite</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Status:</span>
+              <span className="text-gray-900 font-medium">Status:</span>
               <span className="text-green-600 font-medium">Operational</span>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await request.json();
     const { type, quantity, reason, notes } = body;
 
@@ -27,7 +28,7 @@ export async function POST(
 
     // Get current stock
     const stockItem = await prisma.stockItem.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!stockItem) {
@@ -54,7 +55,7 @@ export async function POST(
     const [movement] = await prisma.$transaction([
       prisma.stockMovement.create({
         data: {
-          stockItemId: params.id,
+          stockItemId: id,
           userId: (session.user as any).id,
           type,
           quantity: parsedQuantity,
@@ -68,7 +69,7 @@ export async function POST(
         }
       }),
       prisma.stockItem.update({
-        where: { id: params.id },
+        where: { id },
         data: { quantity: newQuantity }
       })
     ]);
