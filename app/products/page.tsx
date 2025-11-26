@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import PublicHeader from '../components/PublicHeader';
 
 interface Product {
   id: string;
@@ -104,7 +103,6 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <PublicHeader />
 
       {/* Hero Section */}
       <section className="pt-20 pb-16 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
