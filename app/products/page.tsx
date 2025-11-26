@@ -37,15 +37,26 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products/public');
+      // Fetch from AliExpress API with default search for NFC signs
+      const response = await fetch('/api/aliexpress/products?keywords=nfc+smart+review+signs+desktop&pageSize=20');
       const data = await response.json();
+      
       if (data.success && Array.isArray(data.data)) {
-        // Products are already filtered to active ones from the API
-        const normalizedProducts: Product[] = (data.data as Product[]).map((product) => ({
-          ...product,
+        const normalizedProducts: Product[] = data.data.map((product: any) => ({
+          id: product.id,
+          title: product.title,
           description: product.description ?? null,
-          images: product.images ?? [],
+          customPrice: product.customPrice,
+          price: product.price,
+          compareAtPrice: product.compareAtPrice,
+          active: product.active,
+          featured: product.featured,
+          bestseller: product.bestseller,
+          newArrival: product.newArrival,
+          images: Array.isArray(product.images) ? product.images : [],
+          inventoryQuantity: product.inventoryQuantity,
         }));
+        
         setProducts(normalizedProducts);
         setFeaturedProducts(normalizedProducts.filter((p) => p.featured).slice(0, 3));
         setBestsellerProducts(normalizedProducts.filter((p) => p.bestseller).slice(0, 6));
