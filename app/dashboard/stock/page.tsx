@@ -124,7 +124,7 @@ export default function StockPage() {
     }
   };
 
-  const handleMovement = async (id: number, change: number) => {
+  const handleMovement = async (id: string, change: number) => {
     try {
       const response = await fetch(`/api/stock/${id}/movement`, {
         method: 'POST',
