@@ -1,0 +1,37 @@
+name: Hourly Backup
+
+on:
+  schedule:
+    # Run every hour at the top of the hour
+    - cron: '0 * * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Create backup branch
+        run: |
+          # Create or update backup branch
+          git checkout -b backup-$(date +%Y-%m-%d_%H-%M-%S) || git checkout backup-$(date +%Y-%m-%d_%H-%M-%S)
+          git merge origin/master --no-edit || true
+          git push origin backup-$(date +%Y-%m-%d_%H-%M-%S) --force
+
+      - name: Keep only last 24 backups
+        run: |
+          # Delete old backup branches (keep only last 24)
+          git branch -r --list 'origin/backup-*' | sort -r | tail -n +25 | while read branch; do
+            git push origin --delete ${branch#origin/} || true
+          done
