@@ -322,6 +322,8 @@ function MetricCard({ title, value, icon, color, subtitle }: MetricCardProps) {
   );
 }
 
+import Link from 'next/link';
+
 interface ActionCardProps {
   title: string;
   description: string;
@@ -338,13 +340,13 @@ function ActionCard({ title, description, icon, href, color }: ActionCardProps) 
   };
 
   return (
-    <a
+    <Link
       href={href}
       className={`block p-6 rounded-xl bg-gradient-to-br ${colorClasses[color]} text-white hover:shadow-xl transition-all transform hover:scale-105`}
     >
       <div className="text-4xl mb-3">{icon}</div>
       <h3 className="text-lg font-bold mb-2">{title}</h3>
       <p className="text-sm opacity-90">{description}</p>
-    </a>
+    </Link>
   );
 }
