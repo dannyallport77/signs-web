@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 import PhoneAnimation from '../components/PhoneAnimation';
 
 export default function Home() {
