@@ -1,8 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Navbar from '../../components/Navbar';
+import Footer from '../../components/Footer';
 
 interface Product {
   id: string;
@@ -16,29 +19,36 @@ interface Product {
   bestseller: boolean;
   newArrival: boolean;
   images: string[];
+  video?: string | null;
   inventoryQuantity?: number;
 }
 
-export default function ProductsPage() {
+function ProductsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [bestsellerProducts, setBestsellerProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const category = searchParams.get('category') || 'all';
+
   const priceFormatter = useMemo(
     () => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }),
     []
   );
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(category);
+  }, [category]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (selectedCategory: string) => {
+    setLoading(true);
     try {
-      // Fetch from AliExpress API with default search for NFC signs
-      const response = await fetch('/api/aliexpress/products?keywords=nfc+smart+review+signs+desktop&pageSize=20');
+      let keywords = 'nfc google review sign stand sticker keychain';
+      if (selectedCategory === 'stands') keywords = 'nfc review stand';
+      if (selectedCategory === 'stickers') keywords = 'nfc review sticker';
+      if (selectedCategory === 'keyrings') keywords = 'nfc review keychain';
+
+      const response = await fetch(`/api/aliexpress/products?keywords=${encodeURIComponent(keywords)}&pageSize=40`);
       const data = await response.json();
       
       if (data.success && Array.isArray(data.data)) {
@@ -54,18 +64,15 @@ export default function ProductsPage() {
           bestseller: product.bestseller,
           newArrival: product.newArrival,
           images: Array.isArray(product.images) ? product.images : [],
+          video: product.video,
           inventoryQuantity: product.inventoryQuantity,
         }));
         
         setProducts(normalizedProducts);
-        setFeaturedProducts(normalizedProducts.filter((p) => p.featured).slice(0, 3));
-        setBestsellerProducts(normalizedProducts.filter((p) => p.bestseller).slice(0, 6));
         setError(null);
       } else {
         setError(data.error || 'Failed to load products');
         setProducts([]);
-        setFeaturedProducts([]);
-        setBestsellerProducts([]);
       }
     } catch (error) {
       console.error('Failed to fetch products:', error);
@@ -85,10 +92,7 @@ export default function ProductsPage() {
   };
 
   const handleAddToCart = (product: Product) => {
-    // Get current cart from localStorage
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    
-    // Check if product already in cart
     const existingItem = cart.find((item: any) => item.id === product.id);
     
     if (existingItem) {
@@ -104,230 +108,132 @@ export default function ProductsPage() {
     }
     
     localStorage.setItem('cart', JSON.stringify(cart));
-    
-    // Optional: Show toast notification
     alert(`${product.title} added to cart!`);
-    
-    // Optional: Navigate to cart
-    router.push('/checkout');
   };
 
-  return (
-    <div className="min-h-screen bg-white">
+  const categories = [
+    { id: 'all', name: 'All Products' },
+    { id: 'stands', name: 'Countertop Signs' },
+    { id: 'stickers', name: 'Smart Stickers' },
+    { id: 'keyrings', name: 'Digital Keyrings' },
+  ];
 
-      {/* Hero Section */}
-      <section className="pt-20 pb-16 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-                Smart NFC 
-                <span className="text-indigo-600"> Desktop Signs</span>
-              </h1>
-              <p className="text-xl text-gray-600 mb-8">
-                Revolutionize customer reviews with our intelligent NFC-enabled desktop signs. 
-                Simply tap to instantly connect customers to your Google Business reviews.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all transform hover:scale-105">
-                  Get Your Signs Today
-                </button>
-                <button className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all">
-                  View Demo
-                </button>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl p-8 shadow-2xl">
-                <video 
-                  autoPlay 
-                  muted 
-                  loop 
-                  playsInline
-                  className="w-full h-auto rounded-xl shadow-lg"
-                >
-                  <source src="/Sb6a96e1b265d4f188db79667e0b1f2ccJ/0.mp4" type="video/mp4" />
-                </video>
-              </div>
-            </div>
+  return (
+    <div className="min-h-screen bg-white flex flex-col">
+      <Navbar />
+
+      {/* Header */}
+      <div className="bg-gray-50 pt-24 pb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Shop NFC Solutions</h1>
+          <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+            Boost your reviews and social media presence with our range of smart NFC products.
+          </p>
+          
+          {/* Category Filter */}
+          <div className="flex flex-wrap justify-center gap-4">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => router.push(`/products?category=${cat.id}`)}
+                className={`px-6 py-2 rounded-full font-medium transition-colors ${
+                  category === cat.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
         </div>
-      </section>
+      </div>
 
+      {/* Error State */}
       {!loading && error && (
-        <section className="bg-red-50 py-6">
-          <div className="mx-auto max-w-4xl px-4">
-            <p className="text-red-700">{error}</p>
-          </div>
-        </section>
+        <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+          <p className="text-red-600">{error}</p>
+          <button 
+            onClick={() => fetchProducts(category)}
+            className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium"
+          >
+            Try Again
+          </button>
+        </div>
       )}
 
-      {/* Featured Products */}
-      {!loading && featuredProducts.length > 0 && (
-        <section className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-12">Featured Products</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow"
-                >
-                  <div className="relative h-64 w-full overflow-hidden rounded-t-lg bg-gray-200">
-                    {product.images?.[0] ? (
-                      <Image
-                        src={product.images[0]}
-                        alt={product.title}
-                        fill
-                        sizes="(min-width: 1024px) 25vw, 100vw"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
-                        No image
-                      </div>
-                    )}
-                    {product.newArrival && (
-                      <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                        New
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {product.title}
-                    </h3>
-                    <p className="text-2xl font-bold text-indigo-600 mb-4">
-                      {formatPrice(product.customPrice ?? product.price)}
-                    </p>
-                    <button 
-                      onClick={() => handleViewProduct(product.id)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-semibold transition-colors"
-                    >
-                      View Product
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* Product Grid */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-gray-100 rounded-lg h-80 animate-pulse" />
+            ))}
           </div>
-        </section>
-      )}
-
-      {/* Bestsellers Section */}
-      {!loading && bestsellerProducts.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-12">Bestsellers</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-              {bestsellerProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow"
-                >
-                  <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-gray-200">
-                    {product.images?.[0] ? (
-                      <Image
-                        src={product.images[0]}
-                        alt={product.title}
-                        fill
-                        sizes="(min-width: 1024px) 25vw, 100vw"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
-                        No image
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 group"
+              >
+                <div className="relative h-64 w-full overflow-hidden bg-gray-100">
+                    {product.video && (
+                      <div className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full z-10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                          <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                        </svg>
                       </div>
                     )}
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                      Bestseller
+                    {product.images?.[0] ? (
+                    <Image
+                      src={product.images[0]}
+                      alt={product.title}
+                      fill
+                      sizes="(min-width: 1280px) 20vw, 50vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                      No image
                     </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {product.title}
-                    </h3>
-                    <p className="text-2xl font-bold text-indigo-600 mb-4">
-                      {formatPrice(product.customPrice ?? product.price)}
-                    </p>
-                    <button 
-                      onClick={() => handleViewProduct(product.id)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-semibold transition-colors"
-                    >
-                      View Product
-                    </button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* All Products Section */}
-      {!loading && products.length > 0 && (
-        <section className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-12">All Products</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow"
-                >
-                  <div className="relative h-56 w-full overflow-hidden rounded-t-lg bg-gray-200">
-                    {product.images?.[0] ? (
-                      <Image
-                        src={product.images[0]}
-                        alt={product.title}
-                        fill
-                        sizes="(min-width: 1280px) 20vw, 50vw"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
-                        No image
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {product.title}
-                    </h3>
-                    <p className="text-lg font-bold text-indigo-600 mb-3">
+                <div className="p-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2 line-clamp-2 h-10">
+                    {product.title}
+                  </h3>
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-lg font-bold text-indigo-600">
                       {formatPrice(product.customPrice ?? product.price)}
                     </p>
                     <button 
                       onClick={() => handleAddToCart(product)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded text-sm font-semibold transition-colors"
+                      className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                     >
-                      Add to Cart
+                      Add
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No products found in this category.</p>
+          </div>
+        )}
+      </div>
 
-      {/* Loading State */}
-      {loading && (
-        <section className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-gray-600">Loading products...</p>
-          </div>
-        </section>
-      )}
-
-      {/* Empty State */}
-      {!loading && products.length === 0 && (
-        <section className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-gray-600 text-xl">No products available at this time.</p>
-          </div>
-        </section>
-      )}
+      <Footer />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center">Loading...</div>}>
+      <ProductsContent />
+    </Suspense>
   );
 }
