@@ -69,8 +69,8 @@ async function importProducts() {
       console.log(`Importing: ${product.name}`);
       
       // Check if product already exists
-      const existing = await prisma.product?.findUnique({
-        where: { sku: product.sku }
+      const existing = await prisma.signType?.findUnique({
+        where: { name: product.name }
       });
 
       if (existing) {
