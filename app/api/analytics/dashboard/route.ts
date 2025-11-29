@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
         const token = authHeader.substring(7);
         const payload = await verifyMobileToken(token);
         if (payload) {
-          userId = payload.userId;
-          userRole = payload.role || 'user';
+          userId = (payload as any).userId;
+          userRole = (payload as any).role || 'user';
         }
       }
     }
