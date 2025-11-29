@@ -1,43 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { verifyMobileToken } from '@/lib/auth-mobile';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
-    let payload: any = null;
     let userId: string | null = null;
     let userRole: string = 'user';
 
-    // Try NextAuth session first (for web)
+    // Try NextAuth session first (for web) - works with cookies automatically
     const session = await getServerSession(authOptions);
+    
     if (session?.user) {
+      // Web user authenticated via NextAuth
       userId = session.user.id;
       userRole = session.user.role || 'user';
-      payload = { userId, role: userRole };
     } else {
-      // Fall back to mobile JWT token
+      // Try mobile JWT token
       const authHeader = request.headers.get('authorization');
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized' },
-          { status: 401 }
-        );
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const payload = await verifyMobileToken(token);
+        if (payload) {
+          userId = payload.userId;
+          userRole = payload.role || 'user';
+        }
       }
+    }
 
-      const token = authHeader.substring(7);
-      payload = await verifyMobileToken(token);
-      if (!payload) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid token' },
-          { status: 401 }
-        );
-      }
-      userId = userId;
-      userRole = payload.role || 'user';
+    // If still no user, return unauthorized
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -56,7 +55,6 @@ export async function GET(request: NextRequest) {
     if (userRole !== 'admin') {
       dateFilter.userId = userId;
     }
-
     // Get stats
     const [totalSales, totalRevenue, failedSales, activeUsers, todaysStats] = await Promise.all([
       // Total successful sales

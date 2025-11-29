@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      // Web authentication uses session cookies automatically
       
       let url = '/api/analytics/dashboard';
       if (timeRange !== '30d') {
@@ -50,7 +50,7 @@ export default function DashboardPage() {
       }
 
       const response = await fetch(url, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include', // Include cookies for NextAuth
       });
 
       if (response.ok) {
