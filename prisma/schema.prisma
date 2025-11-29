@@ -90,7 +90,7 @@ model StockMovement {
   createdAt   DateTime @default(now())
   
   stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // NFC Tags (for tracking written tags)
@@ -148,7 +148,7 @@ model UserInventory {
   quantity    Int      @default(0)
   lastUpdated DateTime @default(now())
   signType    SignType @relation(fields: [signTypeId], references: [id])
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, signTypeId])
 }
