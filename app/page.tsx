@@ -1,6 +1,4 @@
-import Link from 'next/link';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import PhoneAnimation from '../components/PhoneAnimation';
 
 export default function Home() {
   return (
@@ -60,19 +58,11 @@ export default function Home() {
               
               <div className="relative lg:h-[600px] flex items-center justify-center">
                 <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10">
-                  <video 
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                  >
-                    <source src="/Sb6a96e1b265d4f188db79667e0b1f2ccJ/0.mp4" type="video/mp4" />
-                  </video>
+                  <PhoneAnimation />
                   
                   {/* Phone UI Overlay */}
-                  <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur-sm z-10"></div>
-                  <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 mx-auto w-1/3 rounded-full mb-2 z-10"></div>
+                  <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur-sm z-10 pointer-events-none"></div>
+                  <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 mx-auto w-1/3 rounded-full mb-2 z-10 pointer-events-none"></div>
                 </div>
                 
                 {/* Floating Elements */}
