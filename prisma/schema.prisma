@@ -138,7 +138,7 @@ model Transaction {
   signTypeId      String
   status          String
   signType        SignType  @relation(fields: [signTypeId], references: [id])
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserInventory {
