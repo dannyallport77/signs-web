@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     
     if (session?.user) {
       // Web user authenticated via NextAuth
-      userId = session.user.id;
-      userRole = session.user.role || 'user';
+      userId = (session.user as any).id;
+      userRole = (session.user as any).role || 'user';
     } else {
       // Try mobile JWT token
       const authHeader = request.headers.get('authorization');
