@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
     if (userRole !== 'admin') {
       dateFilter.userId = userId;
     }
+
     // Get stats
     const [totalSales, totalRevenue, failedSales, activeUsers, todaysStats] = await Promise.all([
       // Total successful sales
@@ -110,34 +111,40 @@ export async function GET(request: NextRequest) {
       })
     ]);
 
-    // Get sales trend (last 30 days)
+    // Get sales trend - use Prisma groupBy instead of raw SQL
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const salesTrend = await prisma.$queryRaw`
+    const rawSalesTrend = await prisma.$queryRaw`
       SELECT
-        DATE(created_at) as date,
+        DATE("createdAt") as date,
         COUNT(*) as sales,
-        COALESCE(SUM(sale_price), 0) as revenue
-      FROM transactions
+        COALESCE(SUM("salePrice"), 0) as revenue
+      FROM "Transaction"
       WHERE status = 'success'
-        AND created_at >= ${thirtyDaysAgo}
-        ${userRole !== 'admin' ? Prisma.sql`AND user_id = ${userId}` : Prisma.sql``}
-      GROUP BY DATE(created_at)
-      ORDER BY DATE(created_at)
+        AND "createdAt" >= ${thirtyDaysAgo}
+        ${userRole !== 'admin' ? Prisma.sql`AND "userId" = ${userId}` : Prisma.sql``}
+      GROUP BY DATE("createdAt")
+      ORDER BY DATE("createdAt")
     `;
+
+    const salesTrend = (rawSalesTrend as any[]).map(row => ({
+      date: row.date.toISOString().split('T')[0],
+      sales: Number(row.sales),
+      revenue: Number(row.revenue)
+    }));
 
     // Get sign popularity
     const signPopularity = await prisma.$queryRaw`
       SELECT
         st.name as sign_type,
         COUNT(t.id) as quantity,
-        COALESCE(SUM(t.sale_price), 0) as revenue
-      FROM transactions t
-      JOIN sign_types st ON t.sign_type_id = st.id
+        COALESCE(SUM(t."salePrice"), 0) as revenue
+      FROM "Transaction" t
+      JOIN "SignType" st ON t."signTypeId" = st.id
       WHERE t.status = 'success'
-        ${dateFilter.createdAt ? Prisma.sql`AND t.created_at >= ${dateFilter.createdAt.gte} AND t.created_at <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
-        ${userRole !== 'admin' ? Prisma.sql`AND t.user_id = ${userId}` : Prisma.sql``}
+        ${dateFilter.createdAt ? Prisma.sql`AND t."createdAt" >= ${dateFilter.createdAt.gte} AND t."createdAt" <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
+        ${userRole !== 'admin' ? Prisma.sql`AND t."userId" = ${userId}` : Prisma.sql``}
       GROUP BY st.id, st.name
       ORDER BY quantity DESC
       LIMIT 10
@@ -149,14 +156,14 @@ export async function GET(request: NextRequest) {
         u.id as user_id,
         u.name,
         COUNT(t.id) as total_sales,
-        COALESCE(SUM(t.sale_price), 0) as total_revenue,
+        COALESCE(SUM(t."salePrice"), 0) as total_revenue,
         ROUND(
           (COUNT(CASE WHEN t.status = 'success' THEN 1 END)::decimal /
-           NULLIF(COUNT(t.id), 0)) * 100, 2
+          NULLIF(COUNT(t.id), 0)) * 100, 2
         ) as success_rate
-      FROM users u
-      LEFT JOIN transactions t ON u.id = t.user_id
-        ${dateFilter.createdAt ? Prisma.sql`AND t.created_at >= ${dateFilter.createdAt.gte} AND t.created_at <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
+      FROM "User" u
+      LEFT JOIN "Transaction" t ON u.id = t."userId"
+        ${dateFilter.createdAt ? Prisma.sql`AND t."createdAt" >= ${dateFilter.createdAt.gte} AND t."createdAt" <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
       WHERE u.active = true
         ${userRole !== 'admin' ? Prisma.sql`AND u.id = ${userId}` : Prisma.sql``}
       GROUP BY u.id, u.name
