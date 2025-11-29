@@ -154,7 +154,8 @@ export async function POST(request: NextRequest) {
         locationLat,
         locationLng,
         status: 'pending',
-        notes
+        notes,
+          updatedAt: new Date()
       },
       include: {
         signType: true,
