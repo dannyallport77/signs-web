@@ -1,26 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { verifyMobileToken } from '@/lib/auth-mobile';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    let payload: any = null;
+    let userId: string | null = null;
+    let userRole: string = 'user';
 
-    const token = authHeader.substring(7);
-    const payload = await verifyMobileToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
+    // Try NextAuth session first (for web)
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+      userId = session.user.id;
+      userRole = session.user.role || 'user';
+      payload = { userId, role: userRole };
+    } else {
+      // Fall back to mobile JWT token
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+
+      const token = authHeader.substring(7);
+      payload = await verifyMobileToken(token);
+      if (!payload) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid token' },
+          { status: 401 }
+        );
+      }
+      userId = userId;
+      userRole = payload.role || 'user';
     }
 
     const { searchParams } = new URL(request.url);
@@ -36,8 +53,8 @@ export async function GET(request: NextRequest) {
     }
 
     // If not admin, filter by user's transactions
-    if (payload.role !== 'admin') {
-      dateFilter.userId = payload.userId;
+    if (userRole !== 'admin') {
+      dateFilter.userId = userId;
     }
 
     // Get stats
@@ -107,7 +124,7 @@ export async function GET(request: NextRequest) {
       FROM transactions
       WHERE status = 'success'
         AND created_at >= ${thirtyDaysAgo}
-        ${payload.role !== 'admin' ? Prisma.sql`AND user_id = ${payload.userId}` : Prisma.sql``}
+        ${userRole !== 'admin' ? Prisma.sql`AND user_id = ${userId}` : Prisma.sql``}
       GROUP BY DATE(created_at)
       ORDER BY DATE(created_at)
     `;
@@ -122,7 +139,7 @@ export async function GET(request: NextRequest) {
       JOIN sign_types st ON t.sign_type_id = st.id
       WHERE t.status = 'success'
         ${dateFilter.createdAt ? Prisma.sql`AND t.created_at >= ${dateFilter.createdAt.gte} AND t.created_at <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
-        ${payload.role !== 'admin' ? Prisma.sql`AND t.user_id = ${payload.userId}` : Prisma.sql``}
+        ${userRole !== 'admin' ? Prisma.sql`AND t.user_id = ${userId}` : Prisma.sql``}
       GROUP BY st.id, st.name
       ORDER BY quantity DESC
       LIMIT 10
@@ -143,7 +160,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN transactions t ON u.id = t.user_id
         ${dateFilter.createdAt ? Prisma.sql`AND t.created_at >= ${dateFilter.createdAt.gte} AND t.created_at <= ${dateFilter.createdAt.lte}` : Prisma.sql``}
       WHERE u.active = true
-        ${payload.role !== 'admin' ? Prisma.sql`AND u.id = ${payload.userId}` : Prisma.sql``}
+        ${userRole !== 'admin' ? Prisma.sql`AND u.id = ${userId}` : Prisma.sql``}
       GROUP BY u.id, u.name
       ORDER BY total_revenue DESC
       LIMIT 10
