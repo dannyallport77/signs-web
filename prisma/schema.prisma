@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String
+  role          String    @default("user") // admin, user
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  stockMovements StockMovement[]
+  transactions  Transaction[]
+  inventories   UserInventory[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Stock Control
+model StockItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  sku         String   @unique
+  quantity    Int      @default(0)
+  minQuantity Int      @default(10)
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  movements   StockMovement[]
+}
+
+model StockMovement {
+  id          String   @id @default(cuid())
+  stockItemId String
+  userId      String
+  type        String   // "in", "out", "adjustment"
+  quantity    Int
+  reason      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+// NFC Tags (for tracking written tags)
+model NFCTag {
+  id              String   @id @default(cuid())
+  businessName    String
+  businessAddress String?
+  placeId         String
+  reviewUrl       String?
+  latitude        Float?
+  longitude       Float?
+  writtenAt       DateTime @default(now())
+  writtenBy       String?  // User who wrote the tag
+}
+
+// Sign Types
+model SignType {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  defaultPrice Float
+  isActive    Boolean  @default(true)
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  transactions Transaction[]
+  inventories  UserInventory[]
+}
+
+// Sign Transactions
+model Transaction {
+  id             String    @id @default(cuid())
+  userId         String
+  signTypeId     String
+  businessName   String
+  businessAddress String?
+  placeId        String
+  reviewUrl      String
+  locationLat    Float
+  locationLng    Float
+  status         String    // 'pending', 'success', 'failed', 'erased'
+  salePrice      Float?
+  notes          String?
+  programmedAt   DateTime  @default(now())
+  erasedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  user           User      @relation(fields: [userId], references: [id])
+  signType       SignType  @relation(fields: [signTypeId], references: [id])
+}
+
+// User Inventory
+model UserInventory {
+  id         String   @id @default(cuid())
+  userId     String
+  signTypeId String
+  quantity   Int      @default(0)
+  lastUpdated DateTime @default(now())
+  
+  user       User     @relation(fields: [userId], references: [id])
+  signType   SignType @relation(fields: [signTypeId], references: [id])
+  
+  @@unique([userId, signTypeId])
+}
+
