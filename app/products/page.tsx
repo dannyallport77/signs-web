@@ -43,12 +43,7 @@ function ProductsContent() {
   const fetchProducts = async (selectedCategory: string) => {
     setLoading(true);
     try {
-      let keywords = 'nfc google review sign stand sticker keychain';
-      if (selectedCategory === 'stands') keywords = 'nfc review stand';
-      if (selectedCategory === 'stickers') keywords = 'nfc review sticker';
-      if (selectedCategory === 'keyrings') keywords = 'nfc review keychain';
-
-      const response = await fetch(`/api/aliexpress/products?keywords=${encodeURIComponent(keywords)}&pageSize=40`);
+      const response = await fetch('/api/products');
       const data = await response.json();
       
       if (data.success && Array.isArray(data.data)) {

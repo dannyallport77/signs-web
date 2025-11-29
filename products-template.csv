@@ -1,0 +1,13 @@
+# Product Import Template
+# Save this as products.csv and import
+
+sku,name,description,category,price,compareAtPrice,image1,image2,image3,video,featured,bestseller,inventoryQuantity
+NFC-STAND-BLK-001,Premium NFC Review Stand - Black,Elegant desktop NFC stand for Google reviews,stands,24.99,39.99,https://example.com/1.jpg,https://example.com/2.jpg,,https://example.com/video1.mp4,true,true,100
+NFC-STICK-CLR-001,NFC Smart Sticker - Clear,Waterproof NFC sticker for windows,stickers,8.99,14.99,https://example.com/3.jpg,,,,,true,false,500
+NFC-KEY-MET-001,NFC Keyring - Premium Metal,Durable metal NFC keyring for staff,keyrings,12.99,19.99,https://example.com/4.jpg,https://example.com/5.jpg,,https://example.com/video2.mp4,false,true,200
+
+# Instructions:
+# 1. Fill in your product details
+# 2. For images, use direct URLs (upload to Vercel Blob Storage or use AliExpress image URLs)
+# 3. For videos, upload to Vercel Blob Storage or use a CDN
+# 4. Run: npx tsx scripts/import-products-csv.ts products.csv

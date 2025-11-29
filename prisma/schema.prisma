@@ -25,6 +25,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   stockMovements StockMovement[]
+  transactions  Transaction[]
+  userInventory UserInventory[]
 }
 
 model Account {
@@ -97,10 +99,56 @@ model NFCTag {
   businessName    String
   businessAddress String?
   placeId         String
-  reviewUrl       String
+  reviewUrl       String?
   latitude        Float?
   longitude       Float?
   writtenAt       DateTime @default(now())
   writtenBy       String?  // User who wrote the tag
 }
 
+// Sign Types for Products
+model SignType {
+  id            String          @id
+  name          String
+  description   String?
+  defaultPrice  Float
+  isActive      Boolean         @default(true)
+  imageUrl      String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  transactions  Transaction[]
+  userInventory UserInventory[]
+}
+
+model Transaction {
+  id              String    @id
+  userId          String
+  businessName    String
+  businessAddress String?
+  placeId         String
+  reviewUrl       String
+  salePrice       Float?
+  notes           String?
+  locationLat     Float
+  locationLng     Float
+  erasedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+  programmedAt    DateTime  @default(now())
+  signTypeId      String
+  status          String
+  signType        SignType  @relation(fields: [signTypeId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
+}
+
+model UserInventory {
+  id          String   @id
+  userId      String
+  signTypeId  String
+  quantity    Int      @default(0)
+  lastUpdated DateTime @default(now())
+  signType    SignType @relation(fields: [signTypeId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, signTypeId])
+}
