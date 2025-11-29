@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
 
     const transaction = await prisma.transaction.create({
       data: {
+        id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: transactionUserId,
         signTypeId,
         businessName,
