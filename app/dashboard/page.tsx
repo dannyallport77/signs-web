@@ -2,154 +2,349 @@
 
 import { useEffect, useState } from 'react';
 
+interface Transaction {
+  id: string;
+  businessName: string;
+  signTypeName: string;
+  status: string;
+  salePrice: number;
+  createdAt: string;
+}
+
+interface DashboardData {
+  stats: {
+    totalSales: number;
+    totalRevenue: number;
+    failedSales: number;
+    activeUsers: number;
+    todaysSales: number;
+    todaysRevenue: number;
+  };
+  salesTrend: Array<{ date: string; sales: number; revenue: number }>;
+  signPopularity: Array<{ sign_type: string; quantity: number; revenue: number }>;
+  topUsers: Array<{ user_id: string; name: string; total_sales: number; total_revenue: number; success_rate: number }>;
+  recentTransactions: Transaction[];
+}
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    totalStock: 0,
-    lowStock: 0,
-    totalUsers: 0,
-    nfcTagsWritten: 0,
-  });
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('30d');
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    fetchDashboard();
+  }, [timeRange]);
 
-  const fetchStats = async () => {
+  const fetchDashboard = async () => {
     try {
-      const [stockRes, usersRes, tagsRes] = await Promise.all([
-        fetch('/api/stock'),
-        fetch('/api/users'),
-        fetch('/api/nfc-tags'),
-      ]);
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      let url = '/api/analytics/dashboard';
+      if (timeRange !== '30d') {
+        const endDate = new Date();
+        const startDate = new Date();
+        if (timeRange === '7d') startDate.setDate(startDate.getDate() - 7);
+        if (timeRange === '90d') startDate.setDate(startDate.getDate() - 90);
+        url += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+      }
 
-      const [stockData, usersData, tagsData] = await Promise.all([
-        stockRes.json(),
-        usersRes.json(),
-        tagsRes.json(),
-      ]);
-
-      setStats({
-        totalStock: stockData.stats?.total || 0,
-        lowStock: stockData.stats?.lowStock || 0,
-        totalUsers: usersData.data?.length || 0,
-        nfcTagsWritten: tagsData.data?.length || 0,
+      const response = await fetch(url, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
+
+      if (response.ok) {
+        const result = await response.json();
+        setData(result.data);
+      }
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      console.error('Failed to fetch dashboard:', error);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-12">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
   }
 
+  if (!data) {
+    return <div className="text-center py-12 text-gray-600">Failed to load dashboard data</div>;
+  }
+
+  const stats = data.stats;
+
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="Total Stock Items"
-          value={stats.totalStock}
-          icon="📦"
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Overview of your business performance</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setTimeRange('7d')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              timeRange === '7d' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            7 Days
+          </button>
+          <button
+            onClick={() => setTimeRange('30d')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              timeRange === '30d' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            30 Days
+          </button>
+          <button
+            onClick={() => setTimeRange('90d')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              timeRange === '90d' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            90 Days
+          </button>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <MetricCard
+          title="Total Sales"
+          value={stats.totalSales}
+          icon="📊"
           color="blue"
+          subtitle={`${stats.todaysSales} today`}
         />
-        <StatCard
-          title="Low Stock Items"
-          value={stats.lowStock}
+        <MetricCard
+          title="Total Revenue"
+          value={`£${stats.totalRevenue.toFixed(2)}`}
+          icon="💰"
+          color="green"
+          subtitle={`£${stats.todaysRevenue.toFixed(2)} today`}
+        />
+        <MetricCard
+          title="Failed Sales"
+          value={stats.failedSales}
           icon="⚠️"
           color="red"
+          subtitle={`${((stats.failedSales / (stats.totalSales + stats.failedSales)) * 100).toFixed(1)}% failure rate`}
         />
-        <StatCard
+        <MetricCard
           title="Active Users"
-          value={stats.totalUsers}
+          value={stats.activeUsers}
           icon="👥"
-          color="green"
-        />
-        <StatCard
-          title="NFC Tags Written"
-          value={stats.nfcTagsWritten}
-          icon="📱"
           color="purple"
+        />
+        <MetricCard
+          title="Avg Sale Value"
+          value={`£${(stats.totalRevenue / stats.totalSales || 0).toFixed(2)}`}
+          icon="📈"
+          color="indigo"
+        />
+        <MetricCard
+          title="Success Rate"
+          value={`${((stats.totalSales / (stats.totalSales + stats.failedSales)) * 100).toFixed(1)}%`}
+          icon="✅"
+          color="teal"
         />
       </div>
 
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900">Quick Actions</h3>
-          <div className="space-y-3">
-            <button
-              onClick={() => window.location.href = '/dashboard/stock'}
-              className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Manage Stock
-            </button>
-            <button
-              onClick={() => window.location.href = '/dashboard/users'}
-              className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Manage Users
-            </button>
-            <button
-              onClick={() => window.location.href = '/dashboard/nfc-tags'}
-              className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              View NFC Tags
-            </button>
+        {/* Sales Trend */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Sales Trend</h3>
+          <div className="space-y-2">
+            {data.salesTrend.slice(-10).map((day, idx) => {
+              const maxRevenue = Math.max(...data.salesTrend.map(d => Number(d.revenue)));
+              const percentage = maxRevenue > 0 ? (Number(day.revenue) / maxRevenue) * 100 : 0;
+              return (
+                <div key={idx} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-600 w-20">{new Date(day.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}</span>
+                  <div className="flex-1 bg-gray-200 rounded-full h-6 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full flex items-center justify-end pr-2 transition-all"
+                      style={{ width: `${percentage}%` }}
+                    >
+                      {percentage > 15 && <span className="text-xs font-semibold text-white">{day.sales}</span>}
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900 w-20 text-right">£{Number(day.revenue).toFixed(0)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4 text-gray-900">System Info</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-900 font-medium">Version:</span>
-              <span className="font-medium">1.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-900 font-medium">Database:</span>
-              <span className="font-medium">SQLite</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-900 font-medium">Status:</span>
-              <span className="text-green-600 font-medium">Operational</span>
-            </div>
+        {/* Sign Popularity */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Popular Sign Types</h3>
+          <div className="space-y-3">
+            {data.signPopularity.slice(0, 5).map((sign, idx) => {
+              const maxQty = Math.max(...data.signPopularity.map(s => Number(s.quantity)));
+              const percentage = (Number(sign.quantity) / maxQty) * 100;
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-900">{sign.sign_type}</span>
+                    <span className="text-gray-600">{sign.quantity} sales</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-green-400 to-emerald-500 h-2 rounded-full transition-all"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-gray-500">Revenue: £{Number(sign.revenue).toFixed(2)}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Performers */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Top Performers</h3>
+          <div className="space-y-3">
+            {data.topUsers.slice(0, 5).map((user, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-600">{user.total_sales} sales · {Number(user.success_rate).toFixed(1)}% success</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-green-600">£{Number(user.total_revenue).toFixed(2)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Transactions</h3>
+          <div className="space-y-2">
+            {data.recentTransactions.slice(0, 5).map((tx, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{tx.businessName}</p>
+                  <p className="text-xs text-gray-600">{tx.signTypeName}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    tx.status === 'success' ? 'bg-green-100 text-green-700' : 
+                    tx.status === 'failed' ? 'bg-red-100 text-red-700' : 
+                    'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {tx.status}
+                  </span>
+                  <span className="font-bold text-gray-900 w-16 text-right">£{tx.salePrice?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ActionCard
+          title="Manage Stock"
+          description="View and update inventory levels"
+          icon="📦"
+          href="/dashboard/stock"
+          color="indigo"
+        />
+        <ActionCard
+          title="Manage Users"
+          description="Add or edit user accounts"
+          icon="👥"
+          href="/dashboard/users"
+          color="purple"
+        />
+        <ActionCard
+          title="View NFC Tags"
+          description="Track all written tags"
+          icon="📱"
+          href="/dashboard/nfc-tags"
+          color="blue"
+        />
       </div>
     </div>
   );
 }
 
-interface StatCardProps {
+interface MetricCardProps {
   title: string;
-  value: number;
+  value: string | number;
   icon: string;
-  color: 'blue' | 'red' | 'green' | 'purple';
+  color: 'blue' | 'red' | 'green' | 'purple' | 'indigo' | 'teal';
+  subtitle?: string;
 }
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
+function MetricCard({ title, value, icon, color, subtitle }: MetricCardProps) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    red: 'bg-red-100 text-red-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600',
+    blue: 'from-blue-500 to-blue-600',
+    red: 'from-red-500 to-red-600',
+    green: 'from-green-500 to-green-600',
+    purple: 'from-purple-500 to-purple-600',
+    indigo: 'from-indigo-500 to-indigo-600',
+    teal: 'from-teal-500 to-teal-600',
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className={`text-4xl p-3 rounded-lg ${colorClasses[color]}`}>
+    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`p-3 rounded-lg bg-gradient-to-br ${colorClasses[color]} text-white text-2xl`}>
           {icon}
         </div>
       </div>
+      <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
+      <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
+      {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
     </div>
+  );
+}
+
+interface ActionCardProps {
+  title: string;
+  description: string;
+  icon: string;
+  href: string;
+  color: 'indigo' | 'purple' | 'blue';
+}
+
+function ActionCard({ title, description, icon, href, color }: ActionCardProps) {
+  const colorClasses = {
+    indigo: 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
+    purple: 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
+    blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
+  };
+
+  return (
+    <a
+      href={href}
+      className={`block p-6 rounded-xl bg-gradient-to-br ${colorClasses[color]} text-white hover:shadow-xl transition-all transform hover:scale-105`}
+    >
+      <div className="text-4xl mb-3">{icon}</div>
+      <h3 className="text-lg font-bold mb-2">{title}</h3>
+      <p className="text-sm opacity-90">{description}</p>
+    </a>
   );
 }
