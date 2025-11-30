@@ -155,16 +155,89 @@ Retrieves invoices. Optionally filter by customer email.
 Configure these variables in `.env.local` for the backend:
 
 ```env
-# Email Configuration (required for sending invoices)
-EMAIL_HOST=smtp.gmail.com          # SMTP server host
-EMAIL_PORT=587                      # SMTP port (typically 587 for TLS)
-EMAIL_SECURE=false                  # true for port 465, false for 587
-EMAIL_USER=your-email@gmail.com    # Email account
-EMAIL_PASSWORD=your-app-password   # App-specific password (for Gmail)
-EMAIL_FROM=invoices@review-signs.co.uk  # Sender email address
+# Email Configuration using Resend (recommended)
+EMAIL_HOST=smtp.resend.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=resend
+EMAIL_PASSWORD=re_xxxxxxxxxxxxx  # Your Resend API key
+EMAIL_FROM=invoices@review-signs.co.uk
 ```
 
-### Gmail Setup Example
+### Resend Setup (Recommended - Free with your domain)
+
+1. **Create account**: Go to https://resend.com (free)
+2. **Add your domain**: 
+   - In Resend dashboard, go to Domains
+   - Click "Add Domain"
+   - Enter `review-signs.co.uk`
+   - Select region: `Ireland` (eu-west-1)
+3. **Add DNS records** to your domain provider (GoDaddy, Namecheap, etc.):
+   
+   **Domain Verification (DKIM):**
+   | Type | Name | Content | TTL |
+   |------|------|---------|-----|
+   | TXT | resend._domainkey | p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4bIDYNaSCM0vH4GD9ku0Hz7NhhaUxEuVMqcwQeZ8Lu97mS8v0/jiawsZK9x/7rfkTh7VlUtWTabON2puVAfTQIutAy3WaA2qASOaBH9Z5IkIzToKJ7uqXSmzEKJpKP+WbW8bErkjMAMIPCY324JJ1CNIQvCCOJR9CituS/DhZtwIDAQAB | Auto |
+
+   **SPF Record:**
+   | Type | Name | Content | TTL |
+   |------|------|---------|-----|
+   | TXT | send | v=spf1 include:amazonses.com ~all | Auto |
+
+   **MX Record (for receiving emails):**
+   | Type | Name | Content | TTL | Priority |
+   |------|------|---------|-----|----------|
+   | MX | send | feedback-smtp.eu-west-1.amazonses.com | Auto | 10 |
+
+   **DMARC (Optional but recommended):**
+   | Type | Name | Content | TTL |
+   |------|------|---------|-----|
+   | TXT | _dmarc | v=DMARC1; p=none; | Auto |
+
+4. **Get API Key**:
+   - In Resend dashboard, go to API Keys
+   - Copy your default key (starts with `re_`)
+   - Paste as `EMAIL_PASSWORD` in `.env.local`
+
+5. **Enable Sending**: In Resend dashboard, click "Enable Sending" for your domain
+
+6. **Test**: Send a test email through your app
+
+### Alternative Email Providers
+
+If you prefer not to use Resend, here are other options:
+
+**SendGrid** (300 free emails/month)
+```env
+EMAIL_HOST=smtp.sendgrid.net
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=apikey
+EMAIL_PASSWORD=SG.xxxxxxxxxxxxx
+EMAIL_FROM=noreply@review-signs.co.uk
+```
+
+**Brevo** (300 free emails/day)
+```env
+EMAIL_HOST=smtp-relay.brevo.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your-brevo-email@example.com
+EMAIL_PASSWORD=your-brevo-smtp-key
+EMAIL_FROM=invoices@review-signs.co.uk
+```
+
+**Gmail** (less reliable for business, requires 2FA)
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=your-email@gmail.com
+```
+
+### Gmail Setup (if using Gmail)
 
 1. Enable 2-Factor Authentication on your Gmail account
 2. Generate an App Password:
