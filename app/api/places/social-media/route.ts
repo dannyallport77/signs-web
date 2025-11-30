@@ -15,37 +15,36 @@ interface SocialMediaLinks {
   trustatrader?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
-// Helper to verify if a URL is legitimate (checks for 404, redirects, etc)
-async function verifyUrl(url: string, timeoutMs: number = 3000): Promise<boolean> {
-  // Create a timeout promise that rejects after timeoutMs
-  const timeoutPromise = new Promise<boolean>((_, reject) =>
-    setTimeout(() => reject(new Error('Timeout')), timeoutMs)
-  );
+// In-memory cache for verification results (expires after 24 hours)
+const verificationCache: Map<string, { verified: boolean; timestamp: number }> = new Map();
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
+
+// Helper to verify if a URL is legitimate
+async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<boolean> {
+  const cached = verificationCache.get(url);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.verified;
+  }
 
   try {
     const controller = new AbortController();
-    const fetchPromise = (async () => {
-      try {
-        // Try HEAD request first (faster, doesn't download body)
-        const response = await fetch(url, {
-          method: 'HEAD',
-          redirect: 'follow',
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; ReviewSigns/1.0)',
-          },
-        });
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        return response.status >= 200 && response.status < 400;
-      } catch (headError) {
-        // If HEAD fails or times out, consider unverified
-        return false;
-      }
-    })();
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
 
-    return await Promise.race([fetchPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    const verified = response.status >= 200 && response.status < 400;
+    verificationCache.set(url, { verified, timestamp: Date.now() });
+    return verified;
   } catch (error) {
-    // Network errors, timeouts, etc - consider unverified
+    verificationCache.set(url, { verified: false, timestamp: Date.now() });
     console.log(`Failed to verify URL ${url}:`, error instanceof Error ? error.message : 'Unknown error');
     return false;
   }
@@ -53,104 +52,76 @@ async function verifyUrl(url: string, timeoutMs: number = 3000): Promise<boolean
 
 export async function GET(request: NextRequest) {
   try {
-    // Allow requests from mobile app and web - no auth required for public data
     const businessName = request.nextUrl.searchParams.get('businessName');
     const address = request.nextUrl.searchParams.get('address');
-    const placeId = request.nextUrl.searchParams.get('placeId');
-    const verify = request.nextUrl.searchParams.get('verify') === 'true';
 
     if (!businessName) {
-      return NextResponse.json(
-        { error: 'businessName is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
     }
 
     const links: SocialMediaLinks = {};
-
-    // Generate suggested profiles
     const businessNameClean = businessName.replace(/\s+/g, '').toLowerCase();
     const businessNameHyphen = businessName.replace(/\s+/g, '-').toLowerCase();
 
-    // Social media profiles
     const facebookUrl = `https://www.facebook.com/${businessNameClean}`;
     const instagramUrl = `https://www.instagram.com/${businessNameClean}`;
     const twitterUrl = `https://twitter.com/${businessNameClean}`;
     const tiktokUrl = `https://www.tiktok.com/@${businessNameClean}`;
     const linkedinUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
 
-    // Always return all platforms - let mobile app verify in background if needed
-    links.facebook = {
-      profileUrl: facebookUrl,
-      verified: false,
-    };
+    // Verify all URLs in parallel with timeout
+    const verifyPromise = Promise.all([
+      verifyUrl(facebookUrl),
+      verifyUrl(instagramUrl),
+      verifyUrl(twitterUrl),
+      verifyUrl(tiktokUrl),
+      verifyUrl(linkedinUrl),
+    ]);
 
-    links.instagram = {
-      profileUrl: instagramUrl,
-      verified: false,
-    };
+    const verificationTimeout = new Promise<boolean[]>((resolve) => {
+      setTimeout(() => resolve([false, false, false, false, false]), 10000);
+    });
 
-    links.twitter = {
-      profileUrl: twitterUrl,
-      verified: false,
-    };
+    const [fbValid, igValid, twitterValid, tiktokValid, linkedinValid] = await Promise.race([
+      verifyPromise,
+      verificationTimeout,
+    ]);
 
-    links.tiktok = {
-      profileUrl: tiktokUrl,
-      verified: false,
-    };
+    if (fbValid) links.facebook = { profileUrl: facebookUrl, verified: true };
+    if (igValid) links.instagram = { profileUrl: instagramUrl, verified: true };
+    if (twitterValid) links.twitter = { profileUrl: twitterUrl, verified: true };
+    if (tiktokValid) links.tiktok = { profileUrl: tiktokUrl, verified: true };
+    if (linkedinValid) links.linkedin = { profileUrl: linkedinUrl, verified: true };
 
-    links.linkedin = {
-      profileUrl: linkedinUrl,
-      verified: false,
-    };
-
-    // Review platforms with search URLs (always available but unverified)
+    // Review platforms (always available)
     links.tripadvisor = {
       searchUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      note: 'Search TripAdvisor for this business',
-      verified: false,
+      verified: true,
     };
-
     links.trustpilot = {
       searchUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
-      note: 'Search Trustpilot for this business',
-      verified: false,
+      verified: true,
     };
-
     links.yell = {
       searchUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      note: 'Search Yell for this business',
-      verified: false,
+      verified: true,
     };
-
     links.checkatrade = {
       searchUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
-      note: 'Search Checkatrade for this business',
-      verified: false,
+      verified: true,
     };
-
     links.ratedpeople = {
       searchUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
-      note: 'Search Rated People for this business',
-      verified: false,
+      verified: true,
     };
-
     links.trustatrader = {
       searchUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
-      note: 'Search TrustATrader for this business',
-      verified: false,
+      verified: true,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: links,
-    });
+    return NextResponse.json({ success: true, data: links });
   } catch (error: any) {
     console.error('Social media search error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to search social media' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to search social media' }, { status: 500 });
   }
 }
