@@ -103,11 +103,14 @@ export default function PhoneAnimation() {
   const googleStars = (step >= 6 && step <= 12) ? 5 : (step >= 2 ? step - 1 : 0);
   const googleText = step === 8 ? "Great" : step === 9 ? "Great ser" : step >= 10 ? "Great service! ⭐" : "";
   const googlePosted = step >= 11;
+  const showGoogleCursor = step >= 8 && step <= 10;
 
   // Trustpilot Logic
   const tpStars = (step >= 19 && step <= 24) ? 5 : (step >= 15 ? step - 14 : 0);
   const tpTitle = step >= 20 ? "Amazing!" : "";
+  const showTpTitleCursor = step === 20;
   const tpBody = step === 21 ? "Highly rec" : step >= 22 ? "Highly recommended service." : "";
+  const showTpBodyCursor = step >= 21 && step <= 22;
   const tpSubmitted = step >= 23;
 
   // Instagram Logic
@@ -121,6 +124,7 @@ export default function PhoneAnimation() {
   // Checkatrade Logic
   const catScore = (step >= 42 && step <= 48) ? 10 : (step >= 39 ? (step - 38) * 2.5 : 0); // 2.5, 5, 7.5, 10
   const catText = step === 44 ? "Exce" : step === 45 ? "Excellent" : step >= 46 ? "Excellent work!" : "";
+  const showCatCursor = step >= 44 && step <= 46;
   const catSubmitted = step >= 47;
 
   // Global Success State (for overlay)
@@ -176,8 +180,15 @@ export default function PhoneAnimation() {
                 </svg>
               ))}
             </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-left mb-4 h-20 border border-gray-200 text-xs text-gray-800">
-              {googleText || <span className="text-gray-400">Share details of your own experience...</span>}
+            <div className="bg-gray-50 rounded-lg p-3 text-left mb-4 h-20 border border-gray-200 text-xs text-gray-800 font-medium">
+              {googleText ? (
+                <span>
+                  {googleText}
+                  {showGoogleCursor && <span className="animate-pulse text-blue-600">|</span>}
+                </span>
+              ) : (
+                <span className="text-gray-400 font-normal">Share details of your own experience...</span>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <button className={`px-4 py-1.5 rounded-full font-medium text-xs transition-all ${googlePosted ? 'bg-green-600 text-white' : googleStars > 0 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
@@ -203,11 +214,25 @@ export default function PhoneAnimation() {
               ))}
             </div>
             <div className="space-y-2">
-              <div className="h-8 border border-gray-200 rounded px-2 flex items-center text-xs text-gray-800">
-                {tpTitle || <span className="text-gray-400">Title</span>}
+              <div className="h-8 border border-gray-200 rounded px-2 flex items-center text-xs text-gray-800 font-medium">
+                {tpTitle ? (
+                  <span>
+                    {tpTitle}
+                    {showTpTitleCursor && <span className="animate-pulse text-black">|</span>}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 font-normal">Title</span>
+                )}
               </div>
-              <div className="h-16 border border-gray-200 rounded px-2 py-1 text-xs text-gray-800">
-                {tpBody || <span className="text-gray-400">Your review...</span>}
+              <div className="h-16 border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 font-medium">
+                {tpBody ? (
+                  <span>
+                    {tpBody}
+                    {showTpBodyCursor && <span className="animate-pulse text-black">|</span>}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 font-normal">Your review...</span>
+                )}
               </div>
               <button className={`w-full py-2 rounded font-bold text-xs transition-all mt-1 ${tpSubmitted ? 'bg-green-600 text-white' : tpStars > 0 ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-300'}`}>
                 {tpSubmitted ? 'Sent!' : 'Submit'}
@@ -299,8 +324,15 @@ export default function PhoneAnimation() {
                 </div>
               ))}
             </div>
-            <div className="bg-gray-50 p-2 rounded border border-gray-200 h-16 mb-3 text-xs text-gray-800">
-               {catText || <span className="text-gray-400">Brief description of work...</span>}
+            <div className="bg-gray-50 p-2 rounded border border-gray-200 h-16 mb-3 text-xs text-gray-800 font-medium">
+               {catText ? (
+                 <span>
+                   {catText}
+                   {showCatCursor && <span className="animate-pulse text-[#2d2e83]">|</span>}
+                 </span>
+               ) : (
+                 <span className="text-gray-400 font-normal">Brief description of work...</span>
+               )}
             </div>
             <button className={`w-full py-2 rounded font-bold text-xs transition-all ${catSubmitted ? 'bg-green-600 text-white' : 'bg-[#2d2e83] text-white'}`}>
               {catSubmitted ? 'Review Published' : 'Submit Review'}
