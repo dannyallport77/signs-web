@@ -152,3 +152,33 @@ model UserInventory {
 
   @@unique([userId, signTypeId])
 }
+
+// Invoice Management
+model Invoice {
+  id              String         @id @default(cuid())
+  invoiceNumber   String         @unique
+  customerEmail   String
+  customerName    String
+  businessId      String?
+  totalAmount     Float
+  status          String         @default("sent") // sent, viewed, paid, cancelled
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  sentAt          DateTime       @default(now())
+  
+  items           InvoiceItem[]
+}
+
+model InvoiceItem {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  productId       String
+  productName     String
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  createdAt       DateTime  @default(now())
+  
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
