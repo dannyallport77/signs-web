@@ -425,11 +425,12 @@ export default function PhoneAnimation() {
         <div className={`transition-opacity duration-500 absolute inset-0 bg-white ${isCheckatrade && step > 37 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           {/* Checkatrade Header */}
           <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2 text-[#2d2e83]">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            <div className="flex items-center gap-2">
+              <svg className="w-8 h-8" viewBox="0 0 176 169" fill="none">
+                <path fill="#040154" d="M94.568 71.818c-2.607 4.12-5.1 8.31-7.524 12.535-2.229-3.43-4.469-6.849-6.732-10.279l-.023-.023c-4.411-6.526-31.27 2.567-28.26 7.367 6.215 9.38 20.092 30.72 20.793 31.791 3.24 4.892 8.593 5.399 19.047 2.878 5.606-1.566 8.156-6.987 9.029-8.99.77-1.726 4.848-10.463 7.065-14.768a324.53 324.53 0 0 1 23.021-38.271 321.655 321.655 0 0 1 6.181-8.53 333.407 333.407 0 0 1 13.612-17c.92-1.07 1.85-2.14 2.78-3.2 5.986-6.814 15.635-16.402 21.907-22.905 2.609-2.717-18.598-4.225-25.571 2.198-6.95 6.688-16.783 16.978-23.182 24.252a336.937 336.937 0 0 0-15.543 19.038c-7.561 9.99-16.599 23.906-16.6 23.907Z" />
+                <path fill="#FF3F3F" d="M118.302 117.584c-6.193 16.379-22.379 24.689-39.84 24.689-26.939 0-47.02-19.74-47.02-53.672s19.874-53.672 47.02-53.672c8.776 0 16.129 1.669 22.975 5.398l16.865-20.143c-10.845-6.93-24.47-10.98-39.852-10.98-44.147.01-77.036 29.281-77.036 79.409 0 50.127 33.555 79.385 77.048 79.385 31.821 0 55.049-17.254 63.963-41.609l-24.123-8.805Z" />
               </svg>
-              <span className="font-bold italic text-lg">Checkatrade</span>
+              <span className="font-bold italic text-lg text-[#2d2e83]">Checkatrade</span>
             </div>
             <div className="text-gray-400">✕</div>
           </div>
