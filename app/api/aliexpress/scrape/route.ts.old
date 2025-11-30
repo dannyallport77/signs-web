@@ -1,0 +1,197 @@
+import { NextRequest, NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { url } = await request.json();
+
+    if (!url || !url.includes('aliexpress.com')) {
+      return NextResponse.json({ error: 'Valid AliExpress URL required' }, { status: 400 });
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.aliexpress.com/',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${response.statusText}`);
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const data = {
+      title: '',
+      price: 0,
+      originalPrice: 0,
+      images: [] as string[],
+      description: '',
+      videoUrl: '',
+      variants: [] as any[],
+      specifications: [] as any[],
+      url
+    };
+
+    // Extract all script tags and find data
+    const scripts = $('script');
+    let productData: any = null;
+
+    scripts.each((_, el) => {
+      const text = $(el).html() || '';
+      
+      // Try different data patterns
+      if (text.includes('window.runParams')) {
+        try {
+          // Extract the data object
+          const match = text.match(/window\.runParams\s*=\s*({[\s\S]+?});/);
+          if (match) {
+            const runParams = JSON.parse(match[1]);
+            productData = runParams.data;
+            console.log('Found runParams data');
+          }
+        } catch (e) {
+          console.error('Parse runParams error:', e);
+        }
+      }
+
+      // Alternative: look for __moduleData__
+      if (!productData && text.includes('__moduleData__')) {
+        try {
+          const match = text.match(/__moduleData__\s*=\s*({[\s\S]+?});/);
+          if (match) {
+            productData = JSON.parse(match[1]);
+            console.log('Found __moduleData__');
+          }
+        } catch (e) {
+          console.error('Parse __moduleData__ error:', e);
+        }
+      }
+    });
+
+    if (productData) {
+      console.log('Product data keys:', Object.keys(productData));
+
+      // Title
+      data.title = productData.titleModule?.subject || 
+                   productData.pageModule?.title || 
+                   productData.productInfoComponent?.subject || '';
+
+      // Price - try multiple paths
+      const priceObj = productData.priceModule || productData.priceComponent;
+      if (priceObj) {
+        const salePrice = priceObj.minActivityAmount?.value || 
+                         priceObj.discountPrice?.minActivityAmount?.value ||
+                         priceObj.salePrice?.minAmount?.value;
+        const origPrice = priceObj.maxActivityAmount?.value || 
+                         priceObj.origPrice?.maxAmount?.value ||
+                         priceObj.originalPrice?.maxAmount?.value;
+        
+        data.price = parseFloat(salePrice || origPrice || '0');
+        data.originalPrice = parseFloat(origPrice || salePrice || '0');
+        
+        console.log('Price data:', { salePrice, origPrice, final: data.price });
+      }
+
+      // Images - comprehensive search
+      const imgModule = productData.imageModule || productData.imageComponent;
+      if (imgModule) {
+        const imgList = imgModule.imagePathList || imgModule.images || [];
+        data.images = imgList.map((img: string) => {
+          let url = img;
+          if (url.startsWith('//')) url = 'https:' + url;
+          if (!url.startsWith('http')) url = 'https:' + url;
+          // Get high quality version
+          url = url.replace(/_\d+x\d+\./, '_800x800.');
+          return url;
+        }).filter(Boolean);
+        
+        console.log('Found images from JSON:', data.images.length);
+      }
+
+      // Video
+      const videoUid = imgModule?.videoUid || productData.videoModule?.videoUid;
+      if (videoUid) {
+        data.videoUrl = `https://cloud.video.taobao.com/play/u/${videoUid}/p/1/e/6/t/1.mp4`;
+      }
+
+      // Description
+      data.description = productData.descriptionModule?.descriptionUrl || 
+                        productData.detailModule?.description || '';
+
+      // Specifications
+      const specModule = productData.specsModule || productData.productPropComponent;
+      if (specModule?.props) {
+        data.specifications = specModule.props.map((prop: any) => ({
+          name: prop.attrName || prop.name,
+          value: prop.attrValue || prop.value
+        }));
+        console.log('Found specifications:', data.specifications.length);
+      }
+
+      // Variants/SKU
+      const skuModule = productData.skuModule || productData.skuComponent;
+      if (skuModule?.productSKUPropertyList) {
+        data.variants = skuModule.productSKUPropertyList.map((prop: any) => ({
+          name: prop.skuPropertyName,
+          values: (prop.skuPropertyValues || []).map((v: any) => ({
+            id: v.propertyValueId,
+            name: v.propertyValueDisplayName || v.propertyValueName,
+            image: v.skuPropertyImagePath ? 
+                   (v.skuPropertyImagePath.startsWith('//') ? 'https:' + v.skuPropertyImagePath : v.skuPropertyImagePath) : 
+                   null
+          }))
+        }));
+        console.log('Found variants:', data.variants.length);
+      }
+    }
+
+    // Fallback DOM scraping
+    if (!data.title) {
+      data.title = $('h1').first().text().trim() || 
+                   $('.product-title').first().text().trim() || 
+                   $('title').text().split('-')[0].trim();
+      console.log('Title from DOM:', data.title);
+    }
+
+    if (data.images.length === 0) {
+      console.log('Attempting DOM scraping for images...');
+      
+      const imageSet = new Set<string>();
+      
+      // Try multiple selectors
+      $('img').each((_, el) => {
+        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-image');
+        if (src && src.includes('alicdn.com') && !src.includes('avatar') && !src.includes('logo')) {
+          let url = src;
+          if (url.startsWith('//')) url = 'https:' + url;
+          if (!url.startsWith('http')) url = 'https:' + url;
+          // Get high quality
+          url = url.replace(/_\d+x\d+\./, '_800x800.');
+          imageSet.add(url);
+        }
+      });
+      
+      data.images = Array.from(imageSet);
+      console.log('DOM scraping found images:', data.images.length);
+    }
+
+    console.log('Final data:', {
+      title: data.title,
+      price: data.price,
+      imageCount: data.images.length,
+      variantCount: data.variants.length,
+      specCount: data.specifications.length
+    });
+
+    return NextResponse.json({ success: true, data });
+
+  } catch (error: any) {
+    console.error('Scraping error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

@@ -6,7 +6,7 @@ import Logo from '../components/Logo';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans" suppressHydrationWarning>
       <Navbar />
 
       <main className="flex-grow">
