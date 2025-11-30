@@ -24,10 +24,10 @@ export default function Home() {
                   <span className="text-indigo-200 text-sm font-medium tracking-wide uppercase">Next Gen Review Tech</span>
                 </div>
                 <h1 className="text-5xl lg:text-7xl font-extrabold text-white tracking-tight mb-8 leading-tight">
-                  Get More <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">5-Star Reviews</span> Instantly
+                  Skyrocket Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">5-Star Reviews</span> Instantly
                 </h1>
                 <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                  The easiest way for your customers to leave a review. Just a tap of their phone on our premium NFC signs, stickers, or keyrings. No app required.
+                  Turn happy customers into powerful brand advocates with a single tap. Our premium NFC signs make leaving a review effortless, boosting your online reputation and search ranking automatically.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                   <Link
@@ -50,7 +50,7 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                    iOS & Android
+                    Works on iOS & Android
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
