@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import Logo from '../../components/Logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,8 +41,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <Logo className="w-16 h-16" planeClassName="text-indigo-600" />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Signs NFC Manager
+            Review Signs Manager
           </h1>
           <p className="text-gray-600">Admin Login</p>
         </div>
