@@ -56,8 +56,9 @@ export async function GET(request: NextRequest) {
 
     switch (platform) {
       case 'facebook':
-        url = `https://www.facebook.com/${businessNameClean}`;
-        verified = await verifyUrl(url);
+        // Facebook blocks programmatic verification - return unverified
+        verified = false;
+        url = undefined;
         break;
 
       case 'instagram':
