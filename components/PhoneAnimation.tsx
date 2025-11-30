@@ -133,6 +133,18 @@ export default function PhoneAnimation() {
     (isTrustpilot && step === 24) ||
     (isCheckatrade && step === 47);
 
+  // Sample Images for Social Media
+  const coffeeImages = [
+    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1509365465984-134190037106?auto=format&fit=crop&w=300&q=80",
+    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=300&q=80"
+  ];
+
+  const profileImage = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=100&q=80";
+
   return (
     <div className="w-full h-full bg-white relative overflow-hidden font-sans select-none">
       {/* Status Bar */}
@@ -247,7 +259,7 @@ export default function PhoneAnimation() {
             <div className="flex items-center gap-4 mb-6">
               <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 p-[2px]">
                 <div className="w-full h-full rounded-full bg-white p-[2px]">
-                  <div className="w-full h-full rounded-full bg-gray-200"></div>
+                  <img src={profileImage} alt="Profile" className="w-full h-full rounded-full object-cover" />
                 </div>
               </div>
               <div className="flex-1">
@@ -272,8 +284,10 @@ export default function PhoneAnimation() {
               </button>
             </div>
             <div className="grid grid-cols-3 gap-1 mt-6">
-               {[1,2,3,4,5,6].map(i => (
-                 <div key={i} className="aspect-square bg-gray-100"></div>
+               {coffeeImages.map((src, i) => (
+                 <div key={i} className="aspect-square bg-gray-100 overflow-hidden">
+                   <img src={src} alt="Post" className="w-full h-full object-cover" />
+                 </div>
                ))}
             </div>
           </div>
@@ -282,7 +296,9 @@ export default function PhoneAnimation() {
         {/* --- TIKTOK --- */}
         <div className={`transition-opacity duration-500 absolute inset-0 bg-black text-white ${isTikTok && step > 31 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           <div className="p-4 pt-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gray-800 mx-auto mb-3 border-2 border-white/20"></div>
+            <div className="w-20 h-20 rounded-full bg-gray-800 mx-auto mb-3 border-2 border-white/20 overflow-hidden">
+              <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+            </div>
             <h2 className="font-bold text-lg">@bestcoffee</h2>
             <div className="flex justify-center gap-4 text-xs text-gray-300 mb-6">
               <div className="text-center"><b className="text-white block text-sm">124</b> Following</div>
@@ -300,8 +316,11 @@ export default function PhoneAnimation() {
               <div className="w-9 h-9 bg-gray-800 rounded-sm flex items-center justify-center">▼</div>
             </div>
             <div className="grid grid-cols-3 gap-1">
-               {[1,2,3].map(i => (
-                 <div key={i} className="aspect-[3/4] bg-gray-900 border border-gray-800"></div>
+               {coffeeImages.slice(0, 3).map((src, i) => (
+                 <div key={i} className="aspect-[3/4] bg-gray-900 border border-gray-800 overflow-hidden relative">
+                   <img src={src} alt="TikTok" className="w-full h-full object-cover opacity-80" />
+                   <div className="absolute bottom-1 left-1 text-[10px] font-bold">▷ {12 + i}K</div>
+                 </div>
                ))}
             </div>
           </div>
