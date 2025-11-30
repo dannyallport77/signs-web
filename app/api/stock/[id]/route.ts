@@ -54,7 +54,27 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, description, minQuantity, location } = body;
+    const { name, description, minQuantity, location, quantity } = body;
+
+    // If quantity is being updated, handle stock movement
+    if (quantity !== undefined) {
+      const currentItem = await prisma.stockItem.findUnique({
+        where: { id }
+      });
+
+      if (currentItem && currentItem.quantity !== parseInt(quantity)) {
+        await prisma.stockMovement.create({
+          data: {
+            stockItemId: id,
+            userId: (session.user as any).id,
+            type: 'adjustment',
+            quantity: parseInt(quantity),
+            reason: 'Manual edit',
+            notes: `Changed from ${currentItem.quantity} to ${quantity}`
+          }
+        });
+      }
+    }
 
     const item = await prisma.stockItem.update({
       where: { id },
@@ -63,6 +83,7 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(minQuantity !== undefined && { minQuantity: parseInt(minQuantity) }),
         ...(location !== undefined && { location }),
+        ...(quantity !== undefined && { quantity: parseInt(quantity) }),
       }
     });
 

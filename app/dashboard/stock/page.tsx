@@ -54,7 +54,13 @@ export default function StockPage() {
       const method = editingItem ? 'PATCH' : 'POST';
       
       const payload = editingItem 
-        ? { name: formData.name, description: formData.description, minQuantity: formData.minQuantity, location: formData.location }
+        ? { 
+            name: formData.name, 
+            description: formData.description, 
+            minQuantity: formData.minQuantity, 
+            location: formData.location,
+            quantity: formData.quantity 
+          }
         : formData;
       
       const response = await fetch(url, {
@@ -126,16 +132,25 @@ export default function StockPage() {
 
   const handleMovement = async (id: string, change: number) => {
     try {
+      const type = change > 0 ? 'in' : 'out';
+      const quantity = Math.abs(change);
+      
       const response = await fetch(`/api/stock/${id}/movement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ change, reason: change > 0 ? 'Added stock' : 'Removed stock' }),
+        body: JSON.stringify({ 
+          type, 
+          quantity, 
+          reason: change > 0 ? 'Added stock' : 'Removed stock' 
+        }),
       });
 
       const data = await response.json();
       
       if (data.success) {
         fetchStock();
+      } else {
+        alert(data.error || 'Failed to update stock');
       }
     } catch (error) {
       console.error('Failed to update stock:', error);
