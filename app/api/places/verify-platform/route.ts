@@ -81,15 +81,117 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'tripadvisor':
+        // Try to find the business on TripAdvisor by searching
+        url = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
+        try {
+          const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          });
+          const html = await response.text();
+          // Check if we get actual results (not just the search page)
+          verified = html.includes('data-locationid') || html.includes('location-review-review-list');
+        } catch {
+          verified = false;
+        }
+        break;
+
       case 'trustpilot':
+        // Try to find the business on Trustpilot
+        try {
+          // Try direct business page first
+          const trustpilotSlug = businessNameHyphen.replace(/[^a-z0-9-]/g, '');
+          const directUrl = `https://www.trustpilot.com/review/${trustpilotSlug}`;
+          const directResponse = await fetch(directUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            redirect: 'manual'
+          });
+          if (directResponse.status === 200) {
+            url = directUrl;
+            verified = true;
+          } else {
+            // Fall back to search
+            url = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
+            const searchResponse = await fetch(url, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+            });
+            const html = await searchResponse.text();
+            verified = html.includes('businessUnit') && html.includes(businessName.substring(0, 10));
+          }
+        } catch {
+          verified = false;
+        }
+        break;
+
       case 'yell':
+        // Try to find the business on Yell
+        url = `https://www.yell.com/biz/${businessNameHyphen}/`;
+        try {
+          const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            redirect: 'manual'
+          });
+          verified = response.status === 200;
+          if (!verified) {
+            // Try search if direct URL fails
+            url = `https://www.yell.com/search?keywords=${encodeURIComponent(businessName)}`;
+          }
+        } catch {
+          verified = false;
+        }
+        break;
+
       case 'checkatrade':
+        // Try to find on Checkatrade
+        try {
+          const searchUrl = `https://www.checkatrade.com/trades/${businessNameHyphen}`;
+          const response = await fetch(searchUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            redirect: 'manual'
+          });
+          if (response.status === 200) {
+            url = searchUrl;
+            verified = true;
+          } else {
+            url = `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`;
+            verified = false;
+          }
+        } catch {
+          verified = false;
+        }
+        break;
+
       case 'ratedpeople':
+        // Try to find on Rated People
+        url = `https://www.ratedpeople.com/tradesman/${businessNameHyphen}`;
+        try {
+          const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            redirect: 'manual'
+          });
+          verified = response.status === 200;
+        } catch {
+          verified = false;
+        }
+        break;
+
       case 'trustatrader':
-        // Review platforms - we can't reliably verify without proper business IDs
-        // Return false since we don't have actual profile URLs
-        verified = false;
-        url = undefined;
+        // Try to find on TrustATrader
+        try {
+          const directUrl = `https://www.trustatrader.com/trader/${businessNameHyphen}`;
+          const response = await fetch(directUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            redirect: 'manual'
+          });
+          if (response.status === 200) {
+            url = directUrl;
+            verified = true;
+          } else {
+            url = `https://www.trustatrader.com/search?keywords=${encodeURIComponent(businessName)}`;
+            verified = false;
+          }
+        } catch {
+          verified = false;
+        }
         break;
 
       default:
