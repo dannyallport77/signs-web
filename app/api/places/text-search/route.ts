@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
+      console.error('Google Places API key not configured');
       return NextResponse.json(
         { error: 'Google Places API key not configured' },
         { status: 500 }
@@ -36,8 +37,11 @@ export async function GET(request: Request) {
       );
     }
 
+    // Handle empty results
+    const results = data.results || [];
+    
     // Transform results to include review URL
-    const places = data.results.map((place: any) => ({
+    const places = results.map((place: any) => ({
       placeId: place.place_id,
       name: place.name,
       address: place.formatted_address,
@@ -58,7 +62,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Error searching places:', error);
     return NextResponse.json(
-      { error: 'Failed to search places' },
+      { error: 'Failed to search places', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
