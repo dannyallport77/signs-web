@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PhoneAnimation from '../components/PhoneAnimation';
+import Logo from '../components/Logo';
 
 export default function Home() {
   return (
@@ -20,7 +21,7 @@ export default function Home() {
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="text-center lg:text-left">
                 <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 rounded-full px-4 py-1.5 mb-8 backdrop-blur-sm">
-                  <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                  <Logo className="w-5 h-5 text-indigo-400" planeClassName="text-indigo-200" />
                   <span className="text-indigo-200 text-sm font-medium tracking-wide uppercase">Next Gen Review Tech</span>
                 </div>
                 <h1 className="text-5xl lg:text-7xl font-extrabold text-white tracking-tight mb-8 leading-tight">
