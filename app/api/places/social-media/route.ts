@@ -16,38 +16,34 @@ interface SocialMediaLinks {
 }
 
 // Helper to verify if a URL is legitimate (checks for 404, redirects, etc)
-async function verifyUrl(url: string): Promise<boolean> {
+async function verifyUrl(url: string, timeoutMs: number = 3000): Promise<boolean> {
+  // Create a timeout promise that rejects after timeoutMs
+  const timeoutPromise = new Promise<boolean>((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+  );
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
-    try {
-      // Try HEAD request first (faster, doesn't download body)
-      const response = await fetch(url, {
-        method: 'HEAD',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ReviewSigns/1.0)',
-        },
-      });
-      
-      clearTimeout(timeoutId);
-      return response.status >= 200 && response.status < 400;
-    } catch (headError) {
-      // If HEAD fails, try GET for platforms that don't support HEAD
-      const getResponse = await fetch(url, {
-        method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ReviewSigns/1.0)',
-        },
-      });
-      
-      clearTimeout(timeoutId);
-      return getResponse.status >= 200 && getResponse.status < 400;
-    }
+    const fetchPromise = (async () => {
+      try {
+        // Try HEAD request first (faster, doesn't download body)
+        const response = await fetch(url, {
+          method: 'HEAD',
+          redirect: 'follow',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; ReviewSigns/1.0)',
+          },
+        });
+
+        return response.status >= 200 && response.status < 400;
+      } catch (headError) {
+        // If HEAD fails or times out, consider unverified
+        return false;
+      }
+    })();
+
+    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (error) {
     // Network errors, timeouts, etc - consider unverified
     console.log(`Failed to verify URL ${url}:`, error instanceof Error ? error.message : 'Unknown error');
@@ -83,77 +79,31 @@ export async function GET(request: NextRequest) {
     const tiktokUrl = `https://www.tiktok.com/@${businessNameClean}`;
     const linkedinUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
 
-    // Verify in parallel if requested
-    if (verify) {
-      const [fbValid, igValid, twitterValid, tiktokValid, linkedinValid] = await Promise.all([
-        verifyUrl(facebookUrl),
-        verifyUrl(instagramUrl),
-        verifyUrl(twitterUrl),
-        verifyUrl(tiktokUrl),
-        verifyUrl(linkedinUrl),
-      ]);
+    // Always return all platforms - let mobile app verify in background if needed
+    links.facebook = {
+      profileUrl: facebookUrl,
+      verified: false,
+    };
 
-      if (fbValid) {
-        links.facebook = {
-          profileUrl: facebookUrl,
-          verified: true,
-        };
-      }
+    links.instagram = {
+      profileUrl: instagramUrl,
+      verified: false,
+    };
 
-      if (igValid) {
-        links.instagram = {
-          profileUrl: instagramUrl,
-          verified: true,
-        };
-      }
+    links.twitter = {
+      profileUrl: twitterUrl,
+      verified: false,
+    };
 
-      if (twitterValid) {
-        links.twitter = {
-          profileUrl: twitterUrl,
-          verified: true,
-        };
-      }
+    links.tiktok = {
+      profileUrl: tiktokUrl,
+      verified: false,
+    };
 
-      if (tiktokValid) {
-        links.tiktok = {
-          profileUrl: tiktokUrl,
-          verified: true,
-        };
-      }
-
-      if (linkedinValid) {
-        links.linkedin = {
-          profileUrl: linkedinUrl,
-          verified: true,
-        };
-      }
-    } else {
-      // Without verification, mark as unverified
-      links.facebook = {
-        profileUrl: facebookUrl,
-        verified: false,
-      };
-
-      links.instagram = {
-        profileUrl: instagramUrl,
-        verified: false,
-      };
-
-      links.twitter = {
-        profileUrl: twitterUrl,
-        verified: false,
-      };
-
-      links.tiktok = {
-        profileUrl: tiktokUrl,
-        verified: false,
-      };
-
-      links.linkedin = {
-        profileUrl: linkedinUrl,
-        verified: false,
-      };
-    }
+    links.linkedin = {
+      profileUrl: linkedinUrl,
+      verified: false,
+    };
 
     // Review platforms with search URLs (always available but unverified)
     links.tripadvisor = {
