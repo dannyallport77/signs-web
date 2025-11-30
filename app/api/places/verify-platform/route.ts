@@ -81,33 +81,15 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'tripadvisor':
-        url = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
-        verified = false; // Don't auto-verify search URLs
-        break;
-
       case 'trustpilot':
-        url = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = false; // Don't auto-verify search URLs
-        break;
-
       case 'yell':
-        url = `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
-        verified = false; // Don't auto-verify search URLs
-        break;
-
       case 'checkatrade':
-        url = `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = false; // Don't auto-verify search URLs
-        break;
-
       case 'ratedpeople':
-        url = `https://www.ratedpeople.com/search/${businessNameHyphen}`;
-        verified = false; // Don't auto-verify search URLs
-        break;
-
       case 'trustatrader':
-        url = `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = false; // Don't auto-verify search URLs
+        // Review platforms - we can't reliably verify without proper business IDs
+        // Return false since we don't have actual profile URLs
+        verified = false;
+        url = undefined;
         break;
 
       default:
