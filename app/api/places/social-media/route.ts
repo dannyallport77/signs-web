@@ -57,16 +57,7 @@ async function verifyUrl(url: string): Promise<boolean> {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
+    // Allow requests from mobile app and web - no auth required for public data
     const businessName = request.nextUrl.searchParams.get('businessName');
     const address = request.nextUrl.searchParams.get('address');
     const placeId = request.nextUrl.searchParams.get('placeId');
