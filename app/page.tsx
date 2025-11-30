@@ -60,7 +60,7 @@ export default function Home() {
               </div>
               
               <div className="relative lg:h-[600px] flex items-center justify-center">
-                <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10">
+                <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10 animate-enter-phone">
                   <PhoneAnimation />
                   
                   {/* Phone UI Overlay */}

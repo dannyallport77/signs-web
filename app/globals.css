@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+@keyframes enterFromRight {
+  0% {
+    transform: translateX(120%) rotate(15deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) rotate(-6deg);
+    opacity: 1;
+  }
+}
+
+.animate-enter-phone {
+  animation: enterFromRight 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
