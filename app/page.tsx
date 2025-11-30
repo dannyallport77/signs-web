@@ -69,7 +69,7 @@ export default function Home() {
                 </div>
                 
                 {/* Floating Elements */}
-                <div className="absolute -right-4 top-1/4 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl animate-bounce delay-700 hidden lg:block">
+                <div className="absolute -right-4 top-1/4 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl animate-bounce delay-700 hidden lg:block z-50">
                   <div className="flex items-center gap-3">
                     <div className="bg-green-500 rounded-full p-2">
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
