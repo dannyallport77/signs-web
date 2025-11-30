@@ -82,32 +82,32 @@ export async function GET(request: NextRequest) {
 
       case 'tripadvisor':
         url = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       case 'trustpilot':
         url = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       case 'yell':
         url = `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       case 'checkatrade':
         url = `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       case 'ratedpeople':
         url = `https://www.ratedpeople.com/search/${businessNameHyphen}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       case 'trustatrader':
         url = `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`;
-        verified = true; // Search URLs are always valid
+        verified = false; // Don't auto-verify search URLs
         break;
 
       default:
