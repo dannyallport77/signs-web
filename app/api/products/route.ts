@@ -5,16 +5,43 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    const signTypes = await prisma.signType.findMany({
-      where: {
-        isActive: true
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+    // Fetch both imported products and sign types
+    const [importedProducts, signTypes] = await Promise.all([
+      prisma.product.findMany({
+        include: {
+          options: true,
+          variants: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.signType.findMany({
+        where: {
+          isActive: true
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      })
+    ]);
 
-    const products = signTypes.map(signType => ({
+    // Format imported products
+    const products = importedProducts.map(p => ({
+      id: p.id,
+      title: p.title,
+      description: p.description || '',
+      costPrice: p.costPrice,
+      sellingPrice: p.sellingPrice,
+      images: p.images,
+      category: p.category || 'Imported',
+      isActive: p.isActive,
+      aliexpressUrl: p.aliexpressUrl,
+      createdAt: p.createdAt,
+    }));
+
+    // Also return sign types for backwards compatibility
+    const signTypeProducts = signTypes.map(signType => ({
       id: signType.id,
       title: signType.name,
       description: signType.description || '',
@@ -32,7 +59,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: products
+      data: signTypeProducts,
+      products: products, // New imported products
     });
 
   } catch (error) {
