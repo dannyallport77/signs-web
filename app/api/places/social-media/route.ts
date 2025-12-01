@@ -7,12 +7,12 @@ interface SocialMediaLinks {
   tiktok?: { profileUrl?: string; verified?: boolean };
   twitter?: { profileUrl?: string; verified?: boolean };
   linkedin?: { profileUrl?: string; verified?: boolean };
-  tripadvisor?: { reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
-  trustpilot?: { reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
-  yell?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
-  checkatrade?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
-  ratedpeople?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
-  trustatrader?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  trustpilot?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  yell?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  checkatrade?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  ratedpeople?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
 // In-memory cache for verification results (expires after 24 hours)
@@ -87,41 +87,56 @@ export async function GET(request: NextRequest) {
       verificationTimeout,
     ]);
 
-    if (fbValid) links.facebook = { profileUrl: facebookUrl, verified: true };
-    if (igValid) links.instagram = { profileUrl: instagramUrl, verified: true };
-    if (twitterValid) links.twitter = { profileUrl: twitterUrl, verified: true };
-    if (tiktokValid) links.tiktok = { profileUrl: tiktokUrl, verified: true };
-    if (linkedinValid) links.linkedin = { profileUrl: linkedinUrl, verified: true };
+    links.facebook = { profileUrl: facebookUrl, verified: fbValid };
+    links.instagram = { profileUrl: instagramUrl, verified: igValid };
+    links.twitter = { profileUrl: twitterUrl, verified: twitterValid };
+    links.tiktok = { profileUrl: tiktokUrl, verified: tiktokValid };
+    links.linkedin = { profileUrl: linkedinUrl, verified: linkedinValid };
+
+    const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
+    const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
+    const googleMapsSearch = `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`;
+    links.google = {
+      reviewUrl: googleReviewUrl,
+      mapsUrl: googleMapsSearch,
+    };
 
     // Review platforms (always available)
     links.tripadvisor = {
+      reviewUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       searchUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       verified: true,
     };
     links.trustpilot = {
+      profileUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
     links.yell = {
+      profileUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       searchUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       verified: true,
     };
     links.checkatrade = {
+      profileUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
     links.ratedpeople = {
+      profileUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
       searchUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
       verified: true,
     };
     links.trustatrader = {
+      profileUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
 
     return NextResponse.json({ success: true, data: links });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to search social media';
     console.error('Social media search error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to search social media' }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

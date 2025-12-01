@@ -9,6 +9,7 @@ interface MobilePlatformInput {
   name?: string;
   enabled?: boolean;
   order?: number;
+  icon?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
         url: platform.url,
         enabled: platform.enabled ?? true,
         order: platform.order ?? index,
+        icon: platform.icon,
       }))
     );
 

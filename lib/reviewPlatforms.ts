@@ -1,4 +1,4 @@
-export type PlatformKey =
+export type KnownPlatformKey =
   | 'google'
   | 'facebook'
   | 'instagram'
@@ -12,6 +12,8 @@ export type PlatformKey =
   | 'ratedpeople'
   | 'trustatrader'
   | 'fruitMachine';
+
+export type PlatformKey = KnownPlatformKey | string;
 
 export interface PlatformPreset {
   key: PlatformKey;
@@ -115,7 +117,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
   },
 ];
 
-export const PLATFORM_PRESET_MAP = PLATFORM_PRESETS.reduce<Record<PlatformKey, PlatformPreset>>((acc, preset) => {
+export const PLATFORM_PRESET_MAP = PLATFORM_PRESETS.reduce<Record<string, PlatformPreset>>((acc, preset) => {
   acc[preset.key] = preset;
   return acc;
-}, {} as Record<PlatformKey, PlatformPreset>);
+}, {} as Record<string, PlatformPreset>);

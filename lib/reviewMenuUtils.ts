@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { PLATFORM_PRESET_MAP, PLATFORM_PRESETS, PlatformKey } from '@/lib/reviewPlatforms';
+import { PLATFORM_PRESET_MAP, PlatformKey } from '@/lib/reviewPlatforms';
 
 export type PlatformPayload = {
   platformKey: PlatformKey;
@@ -10,7 +10,7 @@ export type PlatformPayload = {
   icon?: string;
 };
 
-const PLATFORM_KEY_SET = new Set(PLATFORM_PRESETS.map((preset) => preset.key));
+const DEFAULT_CUSTOM_LABEL = 'Custom Platform';
 
 export const slugify = (value: string) =>
   value
@@ -32,22 +32,26 @@ export async function ensureUniqueSlug(base: string): Promise<string> {
   return attempt;
 }
 
+const normalizePlatformKey = (platformKey?: string, fallback?: string, index?: number) => {
+  const source = platformKey?.trim() || fallback?.trim() || `custom-${index ?? Date.now()}`;
+  const normalized = slugify(source);
+  return normalized || `custom-${index ?? Date.now()}`;
+};
+
 export function sanitizePlatforms(platforms: PlatformPayload[]) {
   return platforms
     .filter((platform) => platform.enabled !== false && Boolean(platform.url))
     .map((platform, index) => {
-      if (!PLATFORM_KEY_SET.has(platform.platformKey)) {
-        throw new Error(`Unknown platform key: ${platform.platformKey}`);
-      }
-
-      const preset = PLATFORM_PRESET_MAP[platform.platformKey];
+      const normalizedKey = normalizePlatformKey(platform.platformKey, platform.name, index);
+      const preset = PLATFORM_PRESET_MAP[normalizedKey] ?? PLATFORM_PRESET_MAP[platform.platformKey];
+      const resolvedName = platform.name?.trim() || preset?.label || DEFAULT_CUSTOM_LABEL;
       return {
-        platformKey: platform.platformKey,
-        name: platform.name?.trim() || preset.label,
+        platformKey: normalizedKey,
+        name: resolvedName,
         url: platform.url.trim(),
         enabled: true,
         order: typeof platform.order === 'number' ? platform.order : index,
-        icon: platform.icon || preset.icon,
+        icon: platform.icon?.trim() || preset?.icon || '⭐',
       };
     });
 }
