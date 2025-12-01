@@ -32,6 +32,14 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
+      // Load Custom Fonts
+      const regularFontPath = path.join(process.cwd(), 'public/fonts/Roboto-Regular.ttf');
+      const boldFontPath = path.join(process.cwd(), 'public/fonts/Roboto-Bold.ttf');
+
+      // Register fonts
+      doc.registerFont('Roboto', regularFontPath);
+      doc.registerFont('Roboto-Bold', boldFontPath);
+
       // Brand Colors
       const primaryColor = '#4f46e5'; // Indigo
       const accentColor = '#818cf8'; // Light indigo
@@ -60,7 +68,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
         // Text
         doc.fontSize(24)
-           .font('Helvetica-Bold')
+           .font('Roboto-Bold')
            .fillColor('#dc2626')
            .fillOpacity(0.6)
            .text('PAID', 0, 13, {
@@ -104,15 +112,15 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       const headerY = 35;
       const textX = 100; // Moved right to accommodate logo
 
-      doc.fontSize(28).font('Helvetica-Bold').fillColor(primaryColor);
+      doc.fontSize(28).font('Roboto-Bold').fillColor(primaryColor);
       doc.text('INVOICE', textX, headerY);
       
       // Company Info
       doc.moveDown(0.2);
-      doc.fontSize(14).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(14).font('Roboto-Bold').fillColor(textColor);
       doc.text('Review Signs', textX);
       
-      doc.fontSize(10).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(10).font('Roboto').fillColor('#6b7280');
       doc.text('Professional NFC Review Tag Systems', textX);
       doc.text('https://www.review-signs.co.uk', textX);
 
@@ -131,10 +139,10 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       const detailsY = doc.y;
 
       // Left Column: Invoice Details
-      doc.fontSize(11).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(11).font('Roboto-Bold').fillColor(textColor);
       doc.text('Invoice Details', leftX, detailsY);
       
-      doc.fontSize(10).font('Helvetica').fillColor(textColor);
+      doc.fontSize(10).font('Roboto').fillColor(textColor);
       doc.moveDown(0.3);
       doc.text(`Invoice Number: ${data.invoiceNumber}`, leftX);
       doc.text(`Date: ${data.createdAt.toLocaleDateString('en-GB')}`, leftX);
@@ -142,10 +150,10 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
       // Right Column: Customer Info
       const currentY = detailsY;
-      doc.fontSize(11).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(11).font('Roboto-Bold').fillColor(textColor);
       doc.text('Bill To', rightX, currentY);
       
-      doc.fontSize(10).font('Helvetica').fillColor(textColor);
+      doc.fontSize(10).font('Roboto').fillColor(textColor);
       doc.moveDown(0.3);
       doc.text(data.customerName, rightX);
 
@@ -165,7 +173,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
       // Table header text
       doc.fillColor(textColor);
-      doc.fontSize(10).font('Helvetica-Bold');
+      doc.fontSize(10).font('Roboto-Bold');
       doc.text('Description', itemX, tableTopY);
       doc.text('Qty', quantityX, tableTopY);
       doc.text('Unit Price', priceX, tableTopY);
@@ -173,7 +181,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
 
       // Table rows
       let currentY_rows = tableTopY + 25;
-      doc.font('Helvetica').fontSize(10).fillColor(textColor);
+      doc.font('Roboto').fontSize(10).fillColor(textColor);
 
       data.items.forEach((item, index) => {
         // Alternating row backgrounds
@@ -195,7 +203,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       const summaryY = doc.y;
 
       // Subtotal
-      doc.fontSize(10).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(10).font('Roboto').fillColor('#6b7280');
       doc.text('Subtotal:', 350, summaryY);
       doc.text(`£${data.totalAmount.toFixed(2)}`, 470, summaryY, { align: 'right' });
 
@@ -205,9 +213,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.fillColor(primaryColor);
       doc.rect(300, totalY - 8, 255, 40).fill(); // Reduced height, wider box
 
-      doc.fontSize(14).font('Helvetica-Bold').fillColor('white');
+      doc.fontSize(14).font('Roboto-Bold').fillColor('white');
       doc.text('TOTAL DUE:', 320, totalY);
-      doc.fontSize(16).font('Helvetica-Bold');
+      doc.fontSize(16).font('Roboto-Bold');
       doc.text(`£${data.totalAmount.toFixed(2)}`, 320, totalY, { width: 215, align: 'right' });
 
       // Marketing Section
@@ -216,7 +224,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       const marketingY = doc.y;
       
       // Marketing Header
-      doc.fontSize(11).font('Helvetica-Bold').fillColor(primaryColor);
+      doc.fontSize(11).font('Roboto-Bold').fillColor(primaryColor);
       doc.text('DID YOU KNOW?', 40, marketingY);
       doc.strokeColor(accentColor).lineWidth(1);
       doc.moveTo(40, marketingY + 12).lineTo(190, marketingY + 12).stroke();
@@ -228,7 +236,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       const icon1X = 40;
       const icon2X = 290;
       
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(9).font('Roboto-Bold').fillColor(textColor);
       
       // Item 1: Google Reviews
       // Icon: Star
@@ -240,7 +248,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.restore();
 
       doc.text('Boost Google Reviews', col1X, startY);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280'); // Reduced font size
+      doc.fontSize(8).font('Roboto').fillColor('#6b7280'); // Reduced font size
       doc.text('Get more 5-star reviews on Google with a single tap! Our smart signs make it easy for customers to share their experience.', col1X, startY + 12, { width: 210 });
 
       // Item 2: WiFi Signs
@@ -253,9 +261,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.path('M -8 -8 Q 0 -16 8 -8').stroke();
       doc.restore();
 
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(9).font('Roboto-Bold').fillColor(textColor);
       doc.text('Instant Wi-Fi Access', col2X, startY);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(8).font('Roboto').fillColor('#6b7280');
       doc.text('Help customers connect instantly. No more typing long passwords - just tap to connect!', col2X, startY + 12, { width: 210 });
 
       const row2Y = startY + 50; // Reduced spacing
@@ -271,9 +279,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.moveTo(-4, 5).lineTo(4, 5).stroke();
       doc.restore();
 
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(9).font('Roboto-Bold').fillColor(textColor);
       doc.text('Digital Menu Tags', col1X, row2Y);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(8).font('Roboto').fillColor('#6b7280');
       doc.text('Perfect for restaurants! Place NFC tags on tables to instantly display your menu on customers\' phones.', col1X, row2Y + 12, { width: 210 });
 
       // Item 4: Key Rings
@@ -285,9 +293,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.circle(0, -6, 2).fillColor(primaryColor).fill();
       doc.restore();
 
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(9).font('Roboto-Bold').fillColor(textColor);
       doc.text('Smart Key Rings', col2X, row2Y);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(8).font('Roboto').fillColor('#6b7280');
       doc.text('Carry your review link everywhere. Durable, stylish NFC key rings for business on the go.', col2X, row2Y + 12, { width: 210 });
 
       // Special Offer Box
@@ -297,9 +305,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.strokeColor('#16a34a').lineWidth(1); // Green border
       doc.rect(40, offerY, 515, 35).stroke();
 
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#15803d'); // Dark green text
+      doc.fontSize(9).font('Roboto-Bold').fillColor('#15803d'); // Dark green text
       doc.text('SPECIAL OFFER: Get 10% off your next order of Multi-Platform Signs!', 40, offerY + 10, { align: 'center', width: 515 });
-      doc.fontSize(8).font('Helvetica').text('Use code: UPGRADE10', 40, offerY + 22, { align: 'center', width: 515 });
+      doc.fontSize(8).font('Roboto').text('Use code: UPGRADE10', 40, offerY + 22, { align: 'center', width: 515 });
 
       // Footer & Logos
       // Calculate available space
@@ -325,10 +333,10 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.rect(0, footerTop, 600, footerHeight + 40).fill(); // Extend background to bottom
 
       // Footer Text
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
+      doc.fontSize(9).font('Roboto-Bold').fillColor(textColor);
       doc.text('Review Signs', 0, footerTop + 20, { align: 'center' });
       
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
+      doc.fontSize(8).font('Roboto').fillColor('#6b7280');
       doc.text('Professional NFC Review Tag Systems', 0, footerTop + 35, { align: 'center' });
       doc.text('Web: www.review-signs.co.uk | Email: invoices@review-signs.co.uk', 0, footerTop + 50, { align: 'center' });
       doc.text('© 2025 Review Signs. All rights reserved.', 0, footerTop + 65, { align: 'center' });
