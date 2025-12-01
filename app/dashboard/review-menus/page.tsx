@@ -384,6 +384,12 @@ export default function ReviewMenusPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <Link
+                    href={`/dashboard/review-menus/${menu.slug}`}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold"
+                  >
+                    Edit
+                  </Link>
+                  <Link
                     href={`/review-menu/${menu.slug}`}
                     target="_blank"
                     className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
