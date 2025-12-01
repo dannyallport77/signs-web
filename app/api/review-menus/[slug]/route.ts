@@ -3,13 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PlatformPayload, sanitizePlatforms } from '@/lib/reviewMenuUtils';
 
+type RouteContext = { params: Promise<{ slug: string }> };
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { slug: string } }
+  context: RouteContext
 ) {
   try {
+    const { slug } = await context.params;
     const menu = await prisma.reviewPlatformMenu.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
       include: {
         platforms: {
           where: { enabled: true },
@@ -31,9 +34,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  context: RouteContext
 ) {
   try {
+    const { slug } = await context.params;
     const body = await request.json();
     const {
       businessName,
@@ -53,7 +57,7 @@ export async function PATCH(
       platforms?: PlatformPayload[];
     };
 
-    const existingMenu = await prisma.reviewPlatformMenu.findUnique({ where: { slug: params.slug } });
+    const existingMenu = await prisma.reviewPlatformMenu.findUnique({ where: { slug } });
 
     if (!existingMenu) {
       return NextResponse.json({ error: 'Menu not found' }, { status: 404 });
