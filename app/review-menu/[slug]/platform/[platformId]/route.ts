@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type RouteContext = { params: Promise<{ slug: string; platformId: string }> };
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { slug: string; platformId: string } }
+  context: RouteContext
 ) {
   try {
+    const { slug, platformId } = await context.params;
     const platform = await prisma.reviewPlatform.findFirst({
       where: {
-        id: params.platformId,
+        id: platformId,
         enabled: true,
         menu: {
-          slug: params.slug,
+          slug,
         },
       },
     });
