@@ -159,9 +159,9 @@ export async function GET(request: NextRequest) {
     // Facebook: Users can visit page, like, and leave recommendations
     links.facebook = { profileUrl: facebookUrl, reviewUrl: facebookUrl, verified: false };
     links.instagram = { profileUrl: instagramUrl, reviewUrl: instagramUrl, verified: false };
-    links.twitter = { profileUrl: twitterUrl, verified: false };
-    links.tiktok = { profileUrl: tiktokUrl, verified: false };
-    links.linkedin = { profileUrl: linkedinUrl, verified: false };
+    links.twitter = { profileUrl: twitterUrl, reviewUrl: twitterUrl, verified: false };
+    links.tiktok = { profileUrl: tiktokUrl, reviewUrl: tiktokUrl, verified: false };
+    links.linkedin = { profileUrl: linkedinUrl, reviewUrl: linkedinUrl, verified: false };
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
     const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
