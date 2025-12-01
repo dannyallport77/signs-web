@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       verificationTimeout,
     ]);
 
-    links.facebook = { profileUrl: facebookUrl, verified: fbValid };
+    links.facebook = { profileUrl: facebookUrl, reviewUrl: facebookUrl, verified: fbValid };
     links.instagram = { profileUrl: instagramUrl, verified: igValid };
     links.twitter = { profileUrl: twitterUrl, verified: twitterValid };
     links.tiktok = { profileUrl: tiktokUrl, verified: tiktokValid };
@@ -103,32 +103,38 @@ export async function GET(request: NextRequest) {
 
     // Review platforms (always available)
     links.tripadvisor = {
+      profileUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       reviewUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       searchUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       verified: true,
     };
     links.trustpilot = {
       profileUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
+      reviewUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
     links.yell = {
       profileUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
+      reviewUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       searchUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
       verified: true,
     };
     links.checkatrade = {
       profileUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
+      reviewUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
     links.ratedpeople = {
       profileUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
+      reviewUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
       searchUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
       verified: true,
     };
     links.trustatrader = {
       profileUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
+      reviewUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
       searchUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
       verified: true,
     };
