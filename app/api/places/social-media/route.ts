@@ -15,41 +15,6 @@ interface SocialMediaLinks {
   trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
-// In-memory cache for verification results (expires after 24 hours)
-const verificationCache: Map<string, { verified: boolean; timestamp: number }> = new Map();
-const CACHE_DURATION = 24 * 60 * 60 * 1000;
-
-// Helper to verify if a URL is legitimate
-async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<boolean> {
-  const cached = verificationCache.get(url);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.verified;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-
-    clearTimeout(timeoutId);
-    const verified = response.status >= 200 && response.status < 400;
-    verificationCache.set(url, { verified, timestamp: Date.now() });
-    return verified;
-  } catch (error) {
-    verificationCache.set(url, { verified: false, timestamp: Date.now() });
-    console.log(`Failed to verify URL ${url}:`, error instanceof Error ? error.message : 'Unknown error');
-    return false;
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const businessName = request.nextUrl.searchParams.get('businessName');
@@ -62,36 +27,20 @@ export async function GET(request: NextRequest) {
     const links: SocialMediaLinks = {};
     const businessNameClean = businessName.replace(/\s+/g, '').toLowerCase();
     const businessNameHyphen = businessName.replace(/\s+/g, '-').toLowerCase();
+    const trustpilotSlug = businessNameHyphen.replace(/[^a-z0-9-]/g, '');
 
+    // Social media platforms - basic profile URL construction (no verification to avoid delays)
     const facebookUrl = `https://www.facebook.com/${businessNameClean}`;
     const instagramUrl = `https://www.instagram.com/${businessNameClean}`;
     const twitterUrl = `https://twitter.com/${businessNameClean}`;
     const tiktokUrl = `https://www.tiktok.com/@${businessNameClean}`;
     const linkedinUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
 
-    // Verify all URLs in parallel with timeout
-    const verifyPromise = Promise.all([
-      verifyUrl(facebookUrl),
-      verifyUrl(instagramUrl),
-      verifyUrl(twitterUrl),
-      verifyUrl(tiktokUrl),
-      verifyUrl(linkedinUrl),
-    ]);
-
-    const verificationTimeout = new Promise<boolean[]>((resolve) => {
-      setTimeout(() => resolve([false, false, false, false, false]), 10000);
-    });
-
-    const [fbValid, igValid, twitterValid, tiktokValid, linkedinValid] = await Promise.race([
-      verifyPromise,
-      verificationTimeout,
-    ]);
-
-    links.facebook = { profileUrl: facebookUrl, reviewUrl: facebookUrl, verified: fbValid };
-    links.instagram = { profileUrl: instagramUrl, verified: igValid };
-    links.twitter = { profileUrl: twitterUrl, verified: twitterValid };
-    links.tiktok = { profileUrl: tiktokUrl, verified: tiktokValid };
-    links.linkedin = { profileUrl: linkedinUrl, verified: linkedinValid };
+    links.facebook = { profileUrl: facebookUrl, reviewUrl: facebookUrl, verified: false };
+    links.instagram = { profileUrl: instagramUrl, verified: false };
+    links.twitter = { profileUrl: twitterUrl, verified: false };
+    links.tiktok = { profileUrl: tiktokUrl, verified: false };
+    links.linkedin = { profileUrl: linkedinUrl, verified: false };
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
     const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
@@ -101,42 +50,87 @@ export async function GET(request: NextRequest) {
       mapsUrl: googleMapsSearch,
     };
 
-    // Review platforms (always available)
+    // Review platforms - try direct URLs first, fallback to search
+    // TripAdvisor
+    const tripadvisorSearchUrl = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
     links.tripadvisor = {
-      profileUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      reviewUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      searchUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      verified: true,
+      profileUrl: tripadvisorSearchUrl,
+      reviewUrl: tripadvisorSearchUrl,
+      searchUrl: tripadvisorSearchUrl,
+      verified: false,
     };
-    links.trustpilot = {
-      profileUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
-      reviewUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
-      searchUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`,
-      verified: true,
-    };
+
+    // Trustpilot - try direct URL first
+    const trustpilotDirectUrl = `https://www.trustpilot.com/review/${trustpilotSlug}`;
+    const trustpilotSearchUrl = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
+    try {
+      const tpCheck = await fetch(trustpilotDirectUrl, {
+        method: 'HEAD',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(3000),
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      if (tpCheck.status === 200) {
+        links.trustpilot = {
+          profileUrl: trustpilotDirectUrl,
+          reviewUrl: trustpilotDirectUrl,
+          searchUrl: trustpilotSearchUrl,
+          verified: true,
+        };
+      } else {
+        links.trustpilot = {
+          profileUrl: trustpilotSearchUrl,
+          reviewUrl: trustpilotSearchUrl,
+          searchUrl: trustpilotSearchUrl,
+          verified: false,
+        };
+      }
+    } catch {
+      links.trustpilot = {
+        profileUrl: trustpilotSearchUrl,
+        reviewUrl: trustpilotSearchUrl,
+        searchUrl: trustpilotSearchUrl,
+        verified: false,
+      };
+    }
+
+    // Yell - try direct business page
+    const yellDirectUrl = `https://www.yell.com/biz/${businessNameHyphen}/`;
+    const yellSearchUrl = `https://www.yell.com/search?keywords=${encodeURIComponent(businessName)}`;
     links.yell = {
-      profileUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      reviewUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      searchUrl: `https://www.yell.com/search/uk?query=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`,
-      verified: true,
+      profileUrl: yellDirectUrl,
+      reviewUrl: yellDirectUrl,
+      searchUrl: yellSearchUrl,
+      verified: false,
     };
+
+    // Checkatrade - try trades page
+    const checkatradeDirectUrl = `https://www.checkatrade.com/trades/${businessNameHyphen}`;
+    const checkatradeSearchUrl = `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`;
     links.checkatrade = {
-      profileUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
-      reviewUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
-      searchUrl: `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`,
-      verified: true,
+      profileUrl: checkatradeDirectUrl,
+      reviewUrl: checkatradeDirectUrl,
+      searchUrl: checkatradeSearchUrl,
+      verified: false,
     };
+
+    // Rated People - try tradesman page
+    const ratedpeopleDirectUrl = `https://www.ratedpeople.com/tradesman/${businessNameHyphen}`;
     links.ratedpeople = {
-      profileUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
-      reviewUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
-      searchUrl: `https://www.ratedpeople.com/search/${businessNameHyphen}`,
-      verified: true,
+      profileUrl: ratedpeopleDirectUrl,
+      reviewUrl: ratedpeopleDirectUrl,
+      searchUrl: ratedpeopleDirectUrl,
+      verified: false,
     };
+
+    // TrustATrader - try trader page
+    const trustatraderDirectUrl = `https://www.trustatrader.com/trader/${businessNameHyphen}`;
+    const trustatraderSearchUrl = `https://www.trustatrader.com/search?keywords=${encodeURIComponent(businessName)}`;
     links.trustatrader = {
-      profileUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
-      reviewUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
-      searchUrl: `https://www.trustatrader.com/search?query=${encodeURIComponent(businessName)}`,
-      verified: true,
+      profileUrl: trustatraderDirectUrl,
+      reviewUrl: trustatraderDirectUrl,
+      searchUrl: trustatraderSearchUrl,
+      verified: false,
     };
 
     return NextResponse.json({ success: true, data: links });
