@@ -26,6 +26,19 @@ async function verifyUrl(url: string, timeoutMs: number = 3000): Promise<boolean
   }
 }
 
+// Extracts the first direct review link from a Trustpilot search response
+function extractTrustpilotReviewUrl(html: string): string | undefined {
+  const match = html.match(/href="(\/review\/[^"?#]+)"/i);
+  if (!match) {
+    return undefined;
+  }
+  try {
+    return new URL(match[1], 'https://www.trustpilot.com').toString();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const platform = request.nextUrl.searchParams.get('platform');
@@ -111,12 +124,19 @@ export async function GET(request: NextRequest) {
             verified = true;
           } else {
             // Fall back to search
-            url = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
-            const searchResponse = await fetch(url, {
+            const searchUrl = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
+            const searchResponse = await fetch(searchUrl, {
               headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
             });
             const html = await searchResponse.text();
-            verified = html.includes('businessUnit') && html.includes(businessName.substring(0, 10));
+            const reviewLink = extractTrustpilotReviewUrl(html);
+            if (reviewLink) {
+              url = reviewLink;
+              verified = true;
+            } else {
+              url = searchUrl;
+              verified = false;
+            }
           }
         } catch {
           verified = false;

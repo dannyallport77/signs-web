@@ -106,6 +106,36 @@ model NFCTag {
   writtenBy       String?  // User who wrote the tag
 }
 
+model ReviewPlatformMenu {
+  id              String             @id @default(cuid())
+  slug            String             @unique
+  businessName    String
+  businessAddress String?
+  placeId         String?
+  heroTitle       String?
+  heroSubtitle    String?
+  logoUrl         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  platforms       ReviewPlatform[]
+}
+
+model ReviewPlatform {
+  id          String              @id @default(cuid())
+  menuId      String
+  platformKey String
+  name        String
+  url         String
+  enabled     Boolean             @default(true)
+  order       Int                 @default(0)
+  icon        String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  menu        ReviewPlatformMenu  @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([menuId])
+}
+
 // Sign Types for Products
 model SignType {
   id            String          @id

@@ -29,6 +29,12 @@ const navigation = [
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
   )},
+  { name: 'Review Menus', href: '/dashboard/review-menus', icon: (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9l4 4-4 4M11 13h4" />
+    </svg>
+  )},
 ];
 
 export default function Sidebar() {
