@@ -138,8 +138,27 @@ model ReviewPlatform {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   menu        ReviewPlatformMenu  @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  clicks      ReviewPlatformClick[]
 
   @@index([menuId])
+}
+
+model ReviewPlatformClick {
+  id              String    @id @default(cuid())
+  menuId          String
+  platformId      String
+  timestamp       DateTime  @default(now())
+  userAgent       String?
+  ipAddress       String?
+  referrer        String?
+  reviewSubmitted Boolean   @default(false)
+  metadata        String?   // JSON string for additional data
+  createdAt       DateTime  @default(now())
+  platform        ReviewPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+
+  @@index([menuId])
+  @@index([platformId])
+  @@index([timestamp])
 }
 
 // Sign Types for Products
