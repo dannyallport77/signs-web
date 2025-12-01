@@ -1,22 +1,10 @@
-import Image from 'next/image';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { PLATFORM_PRESET_MAP, PlatformKey } from '@/lib/reviewPlatforms';
 
-async function fetchMenu(slug: string) {
-  return prisma.reviewPlatformMenu.findUnique({
-    where: { slug },
-    include: {
-      platforms: {
-        where: { enabled: true },
-        orderBy: { order: 'asc' },
-      },
-    },
-  });
-}
+type Params = Promise<{ slug: string }>;
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const menu = await prisma.reviewPlatformMenu.findUnique({ where: { slug } });
 
@@ -37,16 +25,23 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ReviewMenuPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ShortlinkRedirect({ params }: { params: Params }) {
   const { slug } = await params;
-  const menu = await fetchMenu(slug);
+  
+  // Verify the menu exists
+  const menu = await prisma.reviewPlatformMenu.findUnique({ 
+    where: { slug },
+    include: {
+      platforms: {
+        where: { enabled: true },
+        orderBy: { order: 'asc' },
+      },
+    },
+  });
 
   if (!menu) {
     notFound();
   }
-
-  const heroTitle = menu.heroTitle || `Leave a review for ${menu.businessName}`;
-  const heroSubtitle = menu.heroSubtitle || menu.businessAddress || 'Choose your favourite platform below';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -54,12 +49,9 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
         <div className="text-center space-y-4">
           {menu.logoUrl ? (
             <div className="flex justify-center">
-              <Image
+              <img
                 src={menu.logoUrl}
                 alt={`${menu.businessName} logo`}
-                width={64}
-                height={64}
-                unoptimized
                 className="h-16 w-16 rounded-2xl object-cover border border-white/10 shadow-lg"
               />
             </div>
@@ -69,8 +61,8 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
             </div>
           )}
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Choose a platform</p>
-          <h1 className="text-4xl font-bold tracking-tight">{heroTitle}</h1>
-          <p className="text-base text-slate-300">{heroSubtitle}</p>
+          <h1 className="text-4xl font-bold tracking-tight">{menu.heroTitle || `Leave a review for ${menu.businessName}`}</h1>
+          <p className="text-base text-slate-300">{menu.heroSubtitle || menu.businessAddress || 'Choose your favourite platform below'}</p>
         </div>
 
         <div className="mt-10 grid gap-4">
@@ -130,3 +122,5 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
     </div>
   );
 }
+
+import { PLATFORM_PRESET_MAP, PlatformKey } from '@/lib/reviewPlatforms';
