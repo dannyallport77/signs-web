@@ -221,8 +221,28 @@ model Invoice {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   sentAt          DateTime       @default(now())
+  // Email tracking
+  emailOpenedAt   DateTime?
+  emailOpened     Boolean        @default(false)
+  trackingToken   String?        @default(cuid())
+  openCount       Int            @default(0)
+  lastOpenedAt    DateTime?
   
   items           InvoiceItem[]
+  opens           InvoiceOpen[]
+}
+
+model InvoiceOpen {
+  id              String         @id @default(cuid())
+  invoiceId       String
+  openedAt        DateTime       @default(now())
+  userAgent       String?
+  ipAddress       String?
+  
+  invoice         Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
+  @@index([openedAt])
 }
 
 model InvoiceItem {
@@ -236,6 +256,8 @@ model InvoiceItem {
   createdAt       DateTime  @default(now())
   
   invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
 }
 
 // E-commerce Product Catalog (New)
