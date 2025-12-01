@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 interface NFCTag {
-  id: number;
+  id: string;
   businessName: string;
   businessAddress: string;
   placeId: string;
@@ -38,7 +38,7 @@ export default function NFCTagsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this NFC tag record?')) return;
 
     try {

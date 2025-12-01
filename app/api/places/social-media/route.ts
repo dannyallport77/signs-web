@@ -157,46 +157,41 @@ export async function GET(request: NextRequest) {
     // Try basic URL patterns first, then search via Google
     const facebookGuessUrl = `https://www.facebook.com/${businessNameClean}`;
     const facebookUrl = await tryMultipleUrls([facebookGuessUrl], 3000) || 
-                       await findUrlViaSerpAPI(businessName, 'facebook', address);
+                       await findUrlViaSerpAPI(businessName, 'facebook', address || undefined);
     links.facebook = { 
       profileUrl: facebookUrl || facebookGuessUrl, 
-      reviewUrl: facebookUrl || facebookGuessUrl, 
       verified: !!facebookUrl 
     };
 
     const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
     const instagramUrl = await tryMultipleUrls([instagramGuessUrl], 3000) || 
-                        await findUrlViaSerpAPI(businessName, 'instagram', address);
+                        await findUrlViaSerpAPI(businessName, 'instagram', address || undefined);
     links.instagram = { 
       profileUrl: instagramUrl || instagramGuessUrl, 
-      reviewUrl: instagramUrl || instagramGuessUrl, 
       verified: !!instagramUrl 
     };
 
     const twitterGuessUrl = `https://twitter.com/${businessNameClean}`;
     const twitterUrl = await tryMultipleUrls([twitterGuessUrl], 3000) || 
-                      await findUrlViaSerpAPI(businessName, 'twitter', address);
+                      await findUrlViaSerpAPI(businessName, 'twitter', address || undefined);
     links.twitter = { 
       profileUrl: twitterUrl || twitterGuessUrl, 
-      reviewUrl: twitterUrl || twitterGuessUrl, 
       verified: !!twitterUrl 
     };
 
     const tiktokGuessUrl = `https://www.tiktok.com/@${businessNameClean}`;
     const tiktokUrl = await tryMultipleUrls([tiktokGuessUrl], 3000) || 
-                     await findUrlViaSerpAPI(businessName, 'tiktok', address);
+                     await findUrlViaSerpAPI(businessName, 'tiktok', address || undefined);
     links.tiktok = { 
       profileUrl: tiktokUrl || tiktokGuessUrl, 
-      reviewUrl: tiktokUrl || tiktokGuessUrl, 
       verified: !!tiktokUrl 
     };
 
     const linkedinGuessUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
     const linkedinUrl = await tryMultipleUrls([linkedinGuessUrl], 3000) || 
-                       await findUrlViaSerpAPI(businessName, 'linkedin', address);
+                       await findUrlViaSerpAPI(businessName, 'linkedin', address || undefined);
     links.linkedin = { 
       profileUrl: linkedinUrl || linkedinGuessUrl, 
-      reviewUrl: linkedinUrl || linkedinGuessUrl, 
       verified: !!linkedinUrl 
     };
 
@@ -225,7 +220,7 @@ export async function GET(request: NextRequest) {
     
     // If no direct URL found, try Google search via SerpAPI
     if (!trustpilotUrl) {
-      trustpilotUrl = await findUrlViaSerpAPI(businessName, 'trustpilot', address);
+      trustpilotUrl = await findUrlViaSerpAPI(businessName, 'trustpilot', address || undefined);
     }
     
     links.trustpilot = {
@@ -244,7 +239,7 @@ export async function GET(request: NextRequest) {
       ], 2000);
       
       if (!tripadvisorUrl) {
-        tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address);
+        tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address || undefined);
       }
       
       links.tripadvisor = {
@@ -265,7 +260,7 @@ export async function GET(request: NextRequest) {
       ], 2000);
       
       if (!yellUrl) {
-        yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address);
+        yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address || undefined);
       }
       
       links.yell = {
@@ -283,7 +278,7 @@ export async function GET(request: NextRequest) {
       ], 2000);
       
       if (!checkatradeUrl) {
-        checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address);
+        checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address || undefined);
       }
       
       links.checkatrade = {
@@ -301,7 +296,7 @@ export async function GET(request: NextRequest) {
       ], 2000);
       
       if (!ratedpeopleUrl) {
-        ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address);
+        ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address || undefined);
       }
       
       links.ratedpeople = {
@@ -319,7 +314,7 @@ export async function GET(request: NextRequest) {
       ], 2000);
       
       if (!trustatraderUrl) {
-        trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address);
+        trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address || undefined);
       }
       
       links.trustatrader = {
