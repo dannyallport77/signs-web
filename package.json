@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "setup": "npx tsx scripts/setup.ts",
+    "test:fruit-machine": "npx tsx scripts/test-fruit-machine.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },

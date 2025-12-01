@@ -2,12 +2,15 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import WheelOfFortune from '@/components/WheelOfFortune';
 
+export const dynamic = 'force-dynamic';
+
 export default async function FruitMachinePage({
   searchParams,
 }: {
-  searchParams: { promotionId?: string; placeId?: string };
+  searchParams: Promise<{ promotionId?: string; placeId?: string }>;
 }) {
-  const { promotionId, placeId } = searchParams;
+  const params = await searchParams;
+  const { promotionId, placeId } = params;
 
   if (!promotionId) {
     return notFound();
