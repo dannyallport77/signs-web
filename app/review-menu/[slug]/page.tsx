@@ -74,7 +74,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
         </div>
 
         <div className="mt-10 grid gap-4">
-          {menu.platforms.length === 0 && (
+          {menu.platforms.length === 0 && !menu.wifiSsid && !menu.promotionId && (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-slate-300">
               No review platforms are available yet.
             </div>
@@ -121,6 +121,52 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
               </a>
             );
           })}
+
+          {menu.wifiSsid && (
+            <a
+              href={`/review-menu/${menu.slug}/platform/wifi`}
+              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-500 to-cyan-600 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+            >
+              <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                    📶
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold">WiFi Access</p>
+                    <p className="text-sm text-white/80">Connect to {menu.wifiSsid}</p>
+                  </div>
+                </div>
+                <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+                  Connect
+                  <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                </div>
+              </div>
+            </a>
+          )}
+
+          {menu.promotionId && (
+            <a
+              href={`/review-menu/${menu.slug}/platform/promotion`}
+              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+            >
+              <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                    🎰
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold">Win a Prize!</p>
+                    <p className="text-sm text-white/80">Try your luck with our promotion</p>
+                  </div>
+                </div>
+                <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+                  Play
+                  <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                </div>
+              </div>
+            </a>
+          )}
         </div>
 
         <p className="mt-12 text-center text-xs text-slate-500">

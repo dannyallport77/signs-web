@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
       placeId,
       tagType,
       platforms,
+      wifiSsid,
+      wifiPassword,
+      wifiSecurity,
+      promotionId,
     } = body;
 
     if (!businessName) {
@@ -50,6 +54,10 @@ export async function POST(request: NextRequest) {
         placeId,
         heroTitle: `Review ${businessName}`,
         heroSubtitle: 'Choose a platform to leave a review',
+        wifiSsid,
+        wifiPassword,
+        wifiSecurity,
+        promotionId,
         platforms: {
           create: sanitizedPlatforms,
         },

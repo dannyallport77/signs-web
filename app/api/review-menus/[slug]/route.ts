@@ -47,6 +47,10 @@ export async function PATCH(
       heroSubtitle,
       logoUrl,
       platforms,
+      wifiSsid,
+      wifiPassword,
+      wifiSecurity,
+      promotionId,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -55,6 +59,10 @@ export async function PATCH(
       heroSubtitle?: string;
       logoUrl?: string;
       platforms?: PlatformPayload[];
+      wifiSsid?: string;
+      wifiPassword?: string;
+      wifiSecurity?: string;
+      promotionId?: string;
     };
 
     const existingMenu = await prisma.reviewPlatformMenu.findUnique({ where: { slug } });
@@ -70,6 +78,10 @@ export async function PATCH(
     if (heroTitle !== undefined) updateData.heroTitle = heroTitle;
     if (heroSubtitle !== undefined) updateData.heroSubtitle = heroSubtitle;
     if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
+    if (wifiSsid !== undefined) updateData.wifiSsid = wifiSsid;
+    if (wifiPassword !== undefined) updateData.wifiPassword = wifiPassword;
+    if (wifiSecurity !== undefined) updateData.wifiSecurity = wifiSecurity;
+    if (promotionId !== undefined) updateData.promotionId = promotionId;
 
     const sanitizedPlatforms = Array.isArray(platforms) ? sanitizePlatforms(platforms) : null;
     if (sanitizedPlatforms && sanitizedPlatforms.length === 0) {

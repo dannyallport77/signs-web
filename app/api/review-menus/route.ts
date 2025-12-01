@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
       heroSubtitle,
       logoUrl,
       platforms,
+      wifiSsid,
+      wifiPassword,
+      wifiSecurity,
+      promotionId,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -42,6 +46,10 @@ export async function POST(request: NextRequest) {
       heroSubtitle?: string;
       logoUrl?: string;
       platforms?: PlatformPayload[];
+      wifiSsid?: string;
+      wifiPassword?: string;
+      wifiSecurity?: string;
+      promotionId?: string;
     };
 
     if (!businessName) {
@@ -70,6 +78,10 @@ export async function POST(request: NextRequest) {
         heroTitle,
         heroSubtitle,
         logoUrl,
+        wifiSsid,
+        wifiPassword,
+        wifiSecurity,
+        promotionId,
         platforms: {
           create: sanitizedPlatforms,
         },

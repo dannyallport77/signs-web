@@ -35,6 +35,10 @@ export async function POST(request: NextRequest) {
       logoUrl,
       slug,
       platforms,
+      wifiSsid,
+      wifiPassword,
+      wifiSecurity,
+      promotionId,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -44,6 +48,10 @@ export async function POST(request: NextRequest) {
       logoUrl?: string;
       slug?: string;
       platforms?: MobilePlatformInput[];
+      wifiSsid?: string;
+      wifiPassword?: string;
+      wifiSecurity?: string;
+      promotionId?: string;
     };
 
     if (!businessName) {
@@ -81,6 +89,10 @@ export async function POST(request: NextRequest) {
         heroTitle: heroTitle || 'How was your experience?',
         heroSubtitle: heroSubtitle || 'Choose a platform below to leave feedback',
         logoUrl,
+        wifiSsid,
+        wifiPassword,
+        wifiSecurity,
+        promotionId,
         platforms: {
           create: preparedPlatforms,
         },

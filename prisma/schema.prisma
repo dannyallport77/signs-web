@@ -115,6 +115,12 @@ model ReviewPlatformMenu {
   heroTitle       String?
   heroSubtitle    String?
   logoUrl         String?
+  // Optional WiFi credentials
+  wifiSsid        String?
+  wifiPassword    String?
+  wifiSecurity    String?
+  // Optional fruit machine promotion
+  promotionId     String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   platforms       ReviewPlatform[]
