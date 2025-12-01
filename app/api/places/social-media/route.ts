@@ -74,6 +74,11 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
     
     // Platform domain patterns to match
     const platformDomains: Record<string, string[]> = {
+      facebook: ['facebook.com/', 'fb.com/'],
+      instagram: ['instagram.com/'],
+      twitter: ['twitter.com/', 'x.com/'],
+      tiktok: ['tiktok.com/@'],
+      linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
       trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
       tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
       yell: ['yell.com/biz/'],
@@ -148,20 +153,52 @@ export async function GET(request: NextRequest) {
     const isTrade = isTradeBusiness(businessName);
     const isHospitality = isHospitalityBusiness(businessName);
 
-    // Social media platforms - basic profile URL construction (no verification to avoid delays)
-    const facebookUrl = `https://www.facebook.com/${businessNameClean}`;
-    const instagramUrl = `https://www.instagram.com/${businessNameClean}`;
-    const twitterUrl = `https://twitter.com/${businessNameClean}`;
-    const tiktokUrl = `https://www.tiktok.com/@${businessNameClean}`;
-    const linkedinUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
+    // Social media platforms - try to find verified accounts via SerpAPI
+    // Try basic URL patterns first, then search via Google
+    const facebookGuessUrl = `https://www.facebook.com/${businessNameClean}`;
+    const facebookUrl = await tryMultipleUrls([facebookGuessUrl], 3000) || 
+                       await findUrlViaSerpAPI(businessName, 'facebook', address);
+    links.facebook = { 
+      profileUrl: facebookUrl || facebookGuessUrl, 
+      reviewUrl: facebookUrl || facebookGuessUrl, 
+      verified: !!facebookUrl 
+    };
 
-    // Social media platforms - include in review menus for page visits/follows
-    // Facebook: Users can visit page, like, and leave recommendations
-    links.facebook = { profileUrl: facebookUrl, reviewUrl: facebookUrl, verified: false };
-    links.instagram = { profileUrl: instagramUrl, reviewUrl: instagramUrl, verified: false };
-    links.twitter = { profileUrl: twitterUrl, reviewUrl: twitterUrl, verified: false };
-    links.tiktok = { profileUrl: tiktokUrl, reviewUrl: tiktokUrl, verified: false };
-    links.linkedin = { profileUrl: linkedinUrl, reviewUrl: linkedinUrl, verified: false };
+    const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
+    const instagramUrl = await tryMultipleUrls([instagramGuessUrl], 3000) || 
+                        await findUrlViaSerpAPI(businessName, 'instagram', address);
+    links.instagram = { 
+      profileUrl: instagramUrl || instagramGuessUrl, 
+      reviewUrl: instagramUrl || instagramGuessUrl, 
+      verified: !!instagramUrl 
+    };
+
+    const twitterGuessUrl = `https://twitter.com/${businessNameClean}`;
+    const twitterUrl = await tryMultipleUrls([twitterGuessUrl], 3000) || 
+                      await findUrlViaSerpAPI(businessName, 'twitter', address);
+    links.twitter = { 
+      profileUrl: twitterUrl || twitterGuessUrl, 
+      reviewUrl: twitterUrl || twitterGuessUrl, 
+      verified: !!twitterUrl 
+    };
+
+    const tiktokGuessUrl = `https://www.tiktok.com/@${businessNameClean}`;
+    const tiktokUrl = await tryMultipleUrls([tiktokGuessUrl], 3000) || 
+                     await findUrlViaSerpAPI(businessName, 'tiktok', address);
+    links.tiktok = { 
+      profileUrl: tiktokUrl || tiktokGuessUrl, 
+      reviewUrl: tiktokUrl || tiktokGuessUrl, 
+      verified: !!tiktokUrl 
+    };
+
+    const linkedinGuessUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
+    const linkedinUrl = await tryMultipleUrls([linkedinGuessUrl], 3000) || 
+                       await findUrlViaSerpAPI(businessName, 'linkedin', address);
+    links.linkedin = { 
+      profileUrl: linkedinUrl || linkedinGuessUrl, 
+      reviewUrl: linkedinUrl || linkedinGuessUrl, 
+      verified: !!linkedinUrl 
+    };
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
     const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
