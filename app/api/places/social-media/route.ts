@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
+import { prisma } from '@/lib/prisma';
 
 interface SocialMediaLinks {
   google?: { reviewUrl?: string; mapsUrl?: string };
@@ -15,6 +16,80 @@ interface SocialMediaLinks {
   ratedpeople?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
+
+// Get caching setting from database
+async function isCachingEnabled(): Promise<boolean> {
+  try {
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'socialMediaCachingEnabled' },
+    });
+    return setting?.value !== 'false';
+  } catch (error) {
+    console.error('Error checking caching setting:', error);
+    return true; // Default to enabled
+  }
+}
+
+// Get cached social media links
+async function getCachedLinks(businessName: string, address?: string, website?: string): Promise<SocialMediaLinks | null> {
+  try {
+    const cache = await prisma.socialMediaCache.findUnique({
+      where: {
+        businessName_address_website: {
+          businessName,
+          address: address || null,
+          website: website || null,
+        },
+      },
+    });
+
+    if (!cache) return null;
+
+    // Check if expired
+    if (new Date() > cache.expiresAt) {
+      // Delete expired cache
+      await prisma.socialMediaCache.delete({ where: { id: cache.id } });
+      return null;
+    }
+
+    return JSON.parse(cache.data);
+  } catch (error) {
+    console.error('Error getting cached links:', error);
+    return null;
+  }
+}
+
+// Save social media links to cache
+async function cacheLinks(businessName: string, address: string | undefined, website: string | undefined, data: SocialMediaLinks): Promise<void> {
+  try {
+    // Cache for 30 days
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    await prisma.socialMediaCache.upsert({
+      where: {
+        businessName_address_website: {
+          businessName,
+          address: address || null,
+          website: website || null,
+        },
+      },
+      create: {
+        businessName,
+        address: address || null,
+        website: website || null,
+        data: JSON.stringify(data),
+        expiresAt,
+      },
+      update: {
+        data: JSON.stringify(data),
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error caching links:', error);
+  }
+}
+
 
 // Scrape a website for social media links
 async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number = 5000): Promise<Partial<SocialMediaLinks>> {
@@ -247,9 +322,19 @@ export async function GET(request: NextRequest) {
     const businessName = request.nextUrl.searchParams.get('businessName');
     const address = request.nextUrl.searchParams.get('address');
     const website = request.nextUrl.searchParams.get('website');
+    const skipCache = request.nextUrl.searchParams.get('skipCache') === 'true';
 
     if (!businessName) {
       return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
+    }
+
+    // Check cache if enabled
+    const cachingEnabled = await isCachingEnabled();
+    if (cachingEnabled && !skipCache) {
+      const cached = await getCachedLinks(businessName, address || undefined, website || undefined);
+      if (cached) {
+        return NextResponse.json({ success: true, data: cached, cached: true });
+      }
     }
 
     let links: SocialMediaLinks = {};
@@ -269,7 +354,12 @@ export async function GET(request: NextRequest) {
             mapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`,
           };
           
-          return NextResponse.json({ success: true, data: links });
+          // Cache before returning
+          if (cachingEnabled) {
+            await cacheLinks(businessName, address || undefined, website || undefined, links);
+          }
+          
+          return NextResponse.json({ success: true, data: links, cached: false });
         }
       } catch (error) {
         console.error('Error scraping website:', error);
@@ -455,7 +545,12 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    return NextResponse.json({ success: true, data: links });
+    // Cache results before returning
+    if (cachingEnabled) {
+      await cacheLinks(businessName, address || undefined, website || undefined, links);
+    }
+
+    return NextResponse.json({ success: true, data: links, cached: false });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to search social media';
     console.error('Social media search error:', error);

@@ -318,3 +318,28 @@ model Promotion {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+// Social Media Cache
+model SocialMediaCache {
+  id              String   @id @default(cuid())
+  businessName    String
+  address         String?
+  website         String?
+  data            String   @db.Text // JSON string of SocialMediaLinks
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  
+  @@unique([businessName, address, website])
+  @@index([expiresAt])
+}
+
+// System Settings
+model SystemSettings {
+  id                    String  @id @default(cuid())
+  key                   String  @unique
+  value                 String  @db.Text
+  description           String?
+  type                  String  @default("string") // string, boolean, number, json
+  updatedAt             DateTime @updatedAt
+}
+
