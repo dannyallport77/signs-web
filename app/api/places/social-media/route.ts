@@ -81,12 +81,28 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
       }
     }
 
-    // Find LinkedIn
+    // Find LinkedIn - handle multiple URL formats and regional domains
     for (const link of allLinks) {
       if (link.includes('linkedin.com/')) {
-        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
-        links.linkedin = { profileUrl: url, verified: true };
-        break;
+        try {
+          // Clean up LinkedIn URLs - remove query params and fragments
+          let cleanedUrl = link.split('?')[0].split('#')[0];
+          // Ensure it starts with https
+          if (!cleanedUrl.startsWith('http')) {
+            cleanedUrl = `https://${cleanedUrl}`;
+          }
+          // Normalize regional LinkedIn domains to standard linkedin.com
+          cleanedUrl = cleanedUrl.replace(/https?:\/\/[a-z]{2}\.linkedin\.com\//i, 'https://www.linkedin.com/');
+          cleanedUrl = cleanedUrl.replace(/https?:\/\/linkedin\.com\//i, 'https://www.linkedin.com/');
+          // Remove trailing slashes after company/in identifier
+          cleanedUrl = cleanedUrl.replace(/([/in|/company][/a-z0-9-]*)\/$/, '$1');
+          
+          const url = new URL(cleanedUrl).href;
+          links.linkedin = { profileUrl: url, verified: true };
+          break;
+        } catch (error) {
+          console.error('Error parsing LinkedIn URL:', error);
+        }
       }
     }
 
