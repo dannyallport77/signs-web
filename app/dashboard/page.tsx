@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import CachingSettings from './components/CachingSettings';
 
 interface Transaction {
   id: string;
@@ -285,6 +286,12 @@ export default function DashboardPage() {
           href="/dashboard/nfc-tags"
           color="blue"
         />
+      </div>
+
+      {/* Settings Section */}
+      <div className="mt-8 border-t pt-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Settings</h2>
+        <CachingSettings />
       </div>
     </div>
   );
