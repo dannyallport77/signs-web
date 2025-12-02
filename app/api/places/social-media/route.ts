@@ -16,6 +16,96 @@ interface SocialMediaLinks {
   trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
+// Scrape a website for social media links
+async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number = 5000): Promise<Partial<SocialMediaLinks>> {
+  const links: Partial<SocialMediaLinks> = {};
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    const response = await fetch(websiteUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return links;
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    // Look for social media links in href attributes
+    const allLinks = new Set<string>();
+    $('a').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      if (href) allLinks.add(href.toLowerCase());
+    });
+
+    // Find Facebook
+    for (const link of allLinks) {
+      if (link.includes('facebook.com/') || link.includes('fb.com/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.facebook = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Instagram
+    for (const link of allLinks) {
+      if (link.includes('instagram.com/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.instagram = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Twitter
+    for (const link of allLinks) {
+      if (link.includes('twitter.com/') || link.includes('x.com/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.twitter = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find TikTok
+    for (const link of allLinks) {
+      if (link.includes('tiktok.com/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.tiktok = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find LinkedIn
+    for (const link of allLinks) {
+      if (link.includes('linkedin.com/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.linkedin = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Trustpilot
+    for (const link of allLinks) {
+      if (link.includes('trustpilot.com/review/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.trustpilot = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
+    return links;
+  } catch (error) {
+    console.error(`Error scraping website for social media:`, error);
+    return links;
+  }
+}
+
 // Helper to verify URL exists and returns 200
 async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<boolean> {
   try {
@@ -140,12 +230,36 @@ export async function GET(request: NextRequest) {
   try {
     const businessName = request.nextUrl.searchParams.get('businessName');
     const address = request.nextUrl.searchParams.get('address');
+    const website = request.nextUrl.searchParams.get('website');
 
     if (!businessName) {
       return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
     }
 
-    const links: SocialMediaLinks = {};
+    let links: SocialMediaLinks = {};
+    
+    // If website is provided, try to scrape it for actual social media links first
+    if (website) {
+      try {
+        const scrapedLinks = await scrapeWebsiteForSocialMedia(website, 3000);
+        links = scrapedLinks;
+        
+        // If we found actual links on the website, return them immediately
+        if (Object.keys(scrapedLinks).length > 0) {
+          // Add Google links as well
+          const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
+          links.google = {
+            reviewUrl: `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`,
+            mapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`,
+          };
+          
+          return NextResponse.json({ success: true, data: links });
+        }
+      } catch (error) {
+        console.error('Error scraping website:', error);
+      }
+    }
+    
     const businessNameClean = businessName.replace(/\s+/g, '').toLowerCase();
     const businessNameHyphen = businessName.replace(/\s+/g, '-').toLowerCase();
     
