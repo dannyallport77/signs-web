@@ -227,7 +227,7 @@ model Invoice {
   // Email tracking
   emailOpenedAt   DateTime?
   emailOpened     Boolean        @default(false)
-  trackingToken   String?        @default(cuid())
+  trackingToken   String?        @unique @default(cuid())
   openCount       Int            @default(0)
   lastOpenedAt    DateTime?
   
