@@ -17,6 +17,16 @@ interface SocialMediaLinks {
   trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
+const CACHE_KEY_DELIMITER = '::';
+
+function buildCacheKey(businessName: string, address?: string | null, website?: string | null): string {
+  const normalize = (value?: string | null) => {
+    if (!value) return 'none';
+    return value.trim().toLowerCase();
+  };
+  return [normalize(businessName), normalize(address), normalize(website)].join(CACHE_KEY_DELIMITER);
+}
+
 // Get caching setting from database
 async function isCachingEnabled(): Promise<boolean> {
   try {
@@ -33,14 +43,9 @@ async function isCachingEnabled(): Promise<boolean> {
 // Get cached social media links
 async function getCachedLinks(businessName: string, address?: string, website?: string): Promise<SocialMediaLinks | null> {
   try {
+    const cacheKey = buildCacheKey(businessName, address, website);
     const cache = await prisma.socialMediaCache.findUnique({
-      where: {
-        businessName_address_website: {
-          businessName,
-          address: address || null,
-          website: website || null,
-        },
-      },
+      where: { id: cacheKey },
     });
 
     if (!cache) return null;
@@ -64,16 +69,12 @@ async function cacheLinks(businessName: string, address: string | undefined, web
   try {
     // Cache for 30 days
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const cacheKey = buildCacheKey(businessName, address, website);
     
     await prisma.socialMediaCache.upsert({
-      where: {
-        businessName_address_website: {
-          businessName,
-          address: address || null,
-          website: website || null,
-        },
-      },
+      where: { id: cacheKey },
       create: {
+        id: cacheKey,
         businessName,
         address: address || null,
         website: website || null,
@@ -252,6 +253,10 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
     
     // Extract URLs from organic results
     const organicResults = data.organic_results || [];
+    const locationTokens = (address || '')
+      .split(/[,\s]+/)
+      .map((token: string) => token.trim().toLowerCase())
+      .filter((token: string) => token.length > 2);
     
     // Platform domain patterns to match
     const platformDomains: Record<string, string[]> = {
@@ -273,11 +278,20 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
     
     // Find first matching URL
     for (const result of organicResults) {
-      const link = result.link || '';
+      const link = (result.link || '').toLowerCase();
+      const title = (result.title || '').toLowerCase();
+      const snippet = (result.snippet || '').toLowerCase();
+
+      const matchesLocation = locationTokens.length === 0 || locationTokens.some(token =>
+        link.includes(token) || title.includes(token) || snippet.includes(token)
+      );
+
+      if (!matchesLocation) continue;
+
       for (const domain of domains) {
         if (link.includes(domain) && !link.includes('/search')) {
           // Clean URL (remove tracking params)
-          return link.split('?')[0].split('#')[0];
+          return (result.link || '').split('?')[0].split('#')[0];
         }
       }
     }
@@ -376,40 +390,40 @@ export async function GET(request: NextRequest) {
     // Social media platforms - try to find verified accounts via SerpAPI
     // Try basic URL patterns first, then search via Google
     const facebookGuessUrl = `https://www.facebook.com/${businessNameClean}`;
-    const facebookUrl = await tryMultipleUrls([facebookGuessUrl], 3000) || 
-                       await findUrlViaSerpAPI(businessName, 'facebook', address || undefined);
+    const facebookUrl = await findUrlViaSerpAPI(businessName, 'facebook', address || undefined) ||
+                       await tryMultipleUrls([facebookGuessUrl], 3000);
     links.facebook = { 
       profileUrl: facebookUrl || facebookGuessUrl, 
       verified: !!facebookUrl 
     };
 
     const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
-    const instagramUrl = await tryMultipleUrls([instagramGuessUrl], 3000) || 
-                        await findUrlViaSerpAPI(businessName, 'instagram', address || undefined);
+    const instagramUrl = await findUrlViaSerpAPI(businessName, 'instagram', address || undefined) ||
+                        await tryMultipleUrls([instagramGuessUrl], 3000);
     links.instagram = { 
       profileUrl: instagramUrl || instagramGuessUrl, 
       verified: !!instagramUrl 
     };
 
     const twitterGuessUrl = `https://twitter.com/${businessNameClean}`;
-    const twitterUrl = await tryMultipleUrls([twitterGuessUrl], 3000) || 
-                      await findUrlViaSerpAPI(businessName, 'twitter', address || undefined);
+    const twitterUrl = await findUrlViaSerpAPI(businessName, 'twitter', address || undefined) ||
+                      await tryMultipleUrls([twitterGuessUrl], 3000);
     links.twitter = { 
       profileUrl: twitterUrl || twitterGuessUrl, 
       verified: !!twitterUrl 
     };
 
     const tiktokGuessUrl = `https://www.tiktok.com/@${businessNameClean}`;
-    const tiktokUrl = await tryMultipleUrls([tiktokGuessUrl], 3000) || 
-                     await findUrlViaSerpAPI(businessName, 'tiktok', address || undefined);
+    const tiktokUrl = await findUrlViaSerpAPI(businessName, 'tiktok', address || undefined) ||
+                     await tryMultipleUrls([tiktokGuessUrl], 3000);
     links.tiktok = { 
       profileUrl: tiktokUrl || tiktokGuessUrl, 
       verified: !!tiktokUrl 
     };
 
     const linkedinGuessUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
-    const linkedinUrl = await tryMultipleUrls([linkedinGuessUrl], 3000) || 
-                       await findUrlViaSerpAPI(businessName, 'linkedin', address || undefined);
+    const linkedinUrl = await findUrlViaSerpAPI(businessName, 'linkedin', address || undefined) ||
+                       await tryMultipleUrls([linkedinGuessUrl], 3000);
     links.linkedin = { 
       profileUrl: linkedinUrl || linkedinGuessUrl, 
       verified: !!linkedinUrl 

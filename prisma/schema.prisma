@@ -119,6 +119,9 @@ model ReviewPlatformMenu {
   wifiSsid        String?
   wifiPassword    String?
   wifiSecurity    String?
+  websiteUrl      String?
+  appDownloadUrl  String?
+  appStoreType    String?
   // Optional fruit machine promotion
   promotionId     String?
   createdAt       DateTime          @default(now())

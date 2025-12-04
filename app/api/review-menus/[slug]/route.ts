@@ -3,6 +3,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PlatformPayload, sanitizePlatforms } from '@/lib/reviewMenuUtils';
 
+const ALLOWED_APP_STORE_TYPES = ['app_store', 'google_play'] as const;
+type AppStoreType = (typeof ALLOWED_APP_STORE_TYPES)[number];
+
+const normalizeUrl = (url?: string | null): string | undefined => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(withProtocol).toString();
+  } catch (error) {
+    console.warn('Invalid URL provided, ignoring:', trimmed);
+    return undefined;
+  }
+};
+
 type RouteContext = { params: Promise<{ slug: string }> };
 
 export async function GET(
@@ -51,6 +67,9 @@ export async function PATCH(
       wifiPassword,
       wifiSecurity,
       promotionId,
+      websiteUrl,
+      appDownloadUrl,
+      appStoreType,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -63,6 +82,9 @@ export async function PATCH(
       wifiPassword?: string;
       wifiSecurity?: string;
       promotionId?: string;
+      websiteUrl?: string;
+      appDownloadUrl?: string;
+      appStoreType?: string;
     };
 
     const existingMenu = await prisma.reviewPlatformMenu.findUnique({ where: { slug } });
@@ -82,6 +104,17 @@ export async function PATCH(
     if (wifiPassword !== undefined) updateData.wifiPassword = wifiPassword;
     if (wifiSecurity !== undefined) updateData.wifiSecurity = wifiSecurity;
     if (promotionId !== undefined) updateData.promotionId = promotionId;
+    if (websiteUrl !== undefined) updateData.websiteUrl = normalizeUrl(websiteUrl) ?? null;
+    if (appDownloadUrl !== undefined) updateData.appDownloadUrl = normalizeUrl(appDownloadUrl) ?? null;
+    if (appStoreType !== undefined) {
+      if (appDownloadUrl) {
+        updateData.appStoreType = ALLOWED_APP_STORE_TYPES.includes(appStoreType as AppStoreType)
+          ? appStoreType
+          : 'app_store';
+      } else {
+        updateData.appStoreType = null;
+      }
+    }
 
     const sanitizedPlatforms = Array.isArray(platforms) ? sanitizePlatforms(platforms) : null;
     if (sanitizedPlatforms && sanitizedPlatforms.length === 0) {

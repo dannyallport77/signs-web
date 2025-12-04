@@ -47,6 +47,18 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
 
   const heroTitle = menu.heroTitle || `Leave a review for ${menu.businessName}`;
   const heroSubtitle = menu.heroSubtitle || menu.businessAddress || 'Choose your favourite platform below';
+  let websiteHostname: string | null = null;
+  if (menu.websiteUrl) {
+    try {
+      const parsed = new URL(menu.websiteUrl);
+      websiteHostname = parsed.hostname.replace(/^www\./, '');
+    } catch (error) {
+      websiteHostname = null;
+    }
+  }
+
+  const appStoreLabel = menu.appStoreType === 'google_play' ? 'Google Play Store' : 'Apple App Store';
+  const appStoreIcon = menu.appStoreType === 'google_play' ? '🤖' : '🍎';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -162,6 +174,58 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
                 </div>
                 <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
                   Play
+                  <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                </div>
+              </div>
+            </a>
+          )}
+
+          {menu.websiteUrl && (
+            <a
+              href={menu.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+            >
+              <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                    🌐
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold">Visit Our Website</p>
+                    <p className="text-sm text-white/80">Open {websiteHostname || 'site'}</p>
+                  </div>
+                </div>
+                <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+                  Visit
+                  <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                </div>
+              </div>
+            </a>
+          )}
+
+          {menu.appDownloadUrl && (
+            <a
+              href={menu.appDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-500 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+            >
+              <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                    {appStoreIcon}
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold">
+                      Install Our App
+                    </p>
+                    <p className="text-sm text-white/80">{appStoreLabel}</p>
+                  </div>
+                </div>
+                <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+                  Install
                   <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
                 </div>
               </div>

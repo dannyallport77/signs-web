@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ensureUniqueSlug, sanitizePlatforms, slugify } from '@/lib/reviewMenuUtils';
 
+const ALLOWED_APP_STORE_TYPES = ['app_store', 'google_play'] as const;
+type AppStoreType = (typeof ALLOWED_APP_STORE_TYPES)[number];
+
+const normalizeUrl = (url?: string | null): string | undefined => {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const normalized = new URL(withProtocol).toString();
+    return normalized;
+  } catch (error) {
+    console.warn('Invalid URL provided, ignoring:', trimmed);
+    return undefined;
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,6 +32,9 @@ export async function POST(request: NextRequest) {
       wifiPassword,
       wifiSecurity,
       promotionId,
+      websiteUrl,
+      appDownloadUrl,
+      appStoreType,
     } = body;
 
     if (!businessName) {
@@ -43,6 +63,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid platforms were supplied' }, { status: 400 });
     }
 
+    const normalizedWebsiteUrl = normalizeUrl(websiteUrl);
+    const normalizedAppDownloadUrl = normalizeUrl(appDownloadUrl);
+    let normalizedAppStoreType: AppStoreType | undefined;
+    if (normalizedAppDownloadUrl) {
+      if (appStoreType && ALLOWED_APP_STORE_TYPES.includes(appStoreType)) {
+        normalizedAppStoreType = appStoreType;
+      } else {
+        normalizedAppStoreType = 'app_store';
+      }
+    }
+
     const baseSlug = slugify(businessName);
     const finalSlug = await ensureUniqueSlug(baseSlug);
 
@@ -58,6 +89,9 @@ export async function POST(request: NextRequest) {
         wifiPassword,
         wifiSecurity,
         promotionId,
+        websiteUrl: normalizedWebsiteUrl,
+        appDownloadUrl: normalizedAppDownloadUrl,
+        appStoreType: normalizedAppStoreType,
         platforms: {
           create: sanitizedPlatforms,
         },

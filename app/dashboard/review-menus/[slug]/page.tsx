@@ -28,12 +28,20 @@ interface ReviewMenu {
   wifiPassword?: string;
   wifiSecurity?: string;
   promotionId?: string;
+  websiteUrl?: string;
+  appDownloadUrl?: string;
+  appStoreType?: 'app_store' | 'google_play' | null;
   platforms: Platform[];
   createdAt: string;
   updatedAt: string;
 }
 
 type PlatformFormState = Record<string, { enabled: boolean; name: string; url: string }>;
+
+const APP_STORE_OPTIONS: Array<{ value: 'app_store' | 'google_play'; label: string }> = [
+  { value: 'app_store', label: 'Apple App Store' },
+  { value: 'google_play', label: 'Google Play Store' },
+];
 
 export default function MenuEditorPage() {
   const router = useRouter();
@@ -57,6 +65,9 @@ export default function MenuEditorPage() {
     wifiPassword: '',
     wifiSecurity: 'WPA',
     promotionId: '',
+    websiteUrl: '',
+    appDownloadUrl: '',
+    appStoreType: 'app_store' as 'app_store' | 'google_play',
   });
 
   const [platformForm, setPlatformForm] = useState<PlatformFormState>({});
@@ -85,6 +96,9 @@ export default function MenuEditorPage() {
           wifiPassword: menuData.wifiPassword || '',
           wifiSecurity: menuData.wifiSecurity || 'WPA',
           promotionId: menuData.promotionId || '',
+          websiteUrl: menuData.websiteUrl || '',
+          appDownloadUrl: menuData.appDownloadUrl || '',
+          appStoreType: (menuData.appStoreType as 'app_store' | 'google_play' | undefined) || 'app_store',
         });
 
         // Populate platform form
@@ -183,6 +197,9 @@ export default function MenuEditorPage() {
           wifiPassword: form.wifiPassword || undefined,
           wifiSecurity: form.wifiSecurity || undefined,
           promotionId: form.promotionId || undefined,
+          websiteUrl: form.websiteUrl || undefined,
+          appDownloadUrl: form.appDownloadUrl || undefined,
+          appStoreType: form.appDownloadUrl ? form.appStoreType : undefined,
           platforms,
         }),
       });
@@ -326,6 +343,61 @@ export default function MenuEditorPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="Choose your favorite platform"
             />
+          </div>
+        </div>
+
+        {/* Website & App Links */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b flex items-center gap-2">
+            <span>🌐 Website & Apps</span>
+            <span className="text-sm font-normal text-gray-500">(Optional)</span>
+          </h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Website URL</label>
+              <input
+                type="url"
+                value={form.websiteUrl}
+                onChange={(e) => handleFormChange('websiteUrl', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="https://yourbusiness.co.uk"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                Adds a "Visit Our Website" button to the customer-facing menu.
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">App Download URL</label>
+              <input
+                type="url"
+                value={form.appDownloadUrl}
+                onChange={(e) => handleFormChange('appDownloadUrl', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="https://apps.apple.com/app/... or https://play.google.com/store/apps/..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">App Store</label>
+              <select
+                value={form.appStoreType}
+                onChange={(e) => handleFormChange('appStoreType', e.target.value as 'app_store' | 'google_play')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                disabled={!form.appDownloadUrl}
+              >
+                {APP_STORE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {!form.appDownloadUrl && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Enter an app link first to enable the install button.
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
