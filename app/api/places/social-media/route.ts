@@ -442,7 +442,7 @@ export async function GET(request: NextRequest) {
     // Check cache if enabled
     const cachingEnabled = await isCachingEnabled();
     if (cachingEnabled && !skipCache) {
-      const cached = await getCachedLinks(businessName, address || undefined, website || undefined);
+      const cached = await getCachedLinks(businessName, address ?? undefined, website ?? undefined);
       if (cached) {
         return NextResponse.json({ success: true, data: cached, cached: true });
       }
@@ -467,7 +467,7 @@ export async function GET(request: NextRequest) {
           
           // Cache before returning
           if (cachingEnabled) {
-            await cacheLinks(businessName, address || undefined, website || undefined, links);
+            await cacheLinks(businessName, address ?? undefined, website ?? undefined, links);
           }
           
           return NextResponse.json({ success: true, data: links, cached: false });
@@ -487,7 +487,7 @@ export async function GET(request: NextRequest) {
     // Social media platforms - try to find verified accounts via SerpAPI
     // Try basic URL patterns first, then search via Google
     const facebookGuessUrl = `https://www.facebook.com/${businessNameClean}`;
-    const facebookUrl = await findUrlViaSerpAPI(businessName, 'facebook', address || undefined) ||
+    const facebookUrl = await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined) ||
                        await tryMultipleUrls([facebookGuessUrl], 3000);
     links.facebook = { 
       profileUrl: facebookUrl || facebookGuessUrl, 
@@ -495,7 +495,7 @@ export async function GET(request: NextRequest) {
     };
 
     const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
-    const instagramUrl = await findUrlViaSerpAPI(businessName, 'instagram', address || undefined) ||
+    const instagramUrl = await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined) ||
                         await tryMultipleUrls([instagramGuessUrl], 3000);
     links.instagram = { 
       profileUrl: instagramUrl || instagramGuessUrl, 
@@ -503,7 +503,7 @@ export async function GET(request: NextRequest) {
     };
 
     const twitterGuessUrl = `https://twitter.com/${businessNameClean}`;
-    const twitterUrl = await findUrlViaSerpAPI(businessName, 'twitter', address || undefined) ||
+    const twitterUrl = await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined) ||
                       await tryMultipleUrls([twitterGuessUrl], 3000);
     links.twitter = { 
       profileUrl: twitterUrl || twitterGuessUrl, 
@@ -511,7 +511,7 @@ export async function GET(request: NextRequest) {
     };
 
     const tiktokGuessUrl = `https://www.tiktok.com/@${businessNameClean}`;
-    const tiktokUrl = await findUrlViaSerpAPI(businessName, 'tiktok', address || undefined) ||
+    const tiktokUrl = await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined) ||
                      await tryMultipleUrls([tiktokGuessUrl], 3000);
     links.tiktok = { 
       profileUrl: tiktokUrl || tiktokGuessUrl, 
@@ -519,7 +519,7 @@ export async function GET(request: NextRequest) {
     };
 
     const linkedinGuessUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
-    const linkedinUrl = await findUrlViaSerpAPI(businessName, 'linkedin', address || undefined) ||
+    const linkedinUrl = await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined) ||
                        await tryMultipleUrls([linkedinGuessUrl], 3000);
     links.linkedin = { 
       profileUrl: linkedinUrl || linkedinGuessUrl, 
@@ -544,12 +544,12 @@ export async function GET(request: NextRequest) {
     
     if (!trustpilotUrl) {
       // Try Google search via SerpAPI
-      trustpilotUrl = await findUrlViaSerpAPI(businessName, 'trustpilot', address || undefined);
+      trustpilotUrl = await findUrlViaSerpAPI(businessName, 'trustpilot', address ?? undefined);
     }
     
     if (!trustpilotUrl) {
       // Try AI-powered search as last resort
-      trustpilotUrl = await findUrlViaAI(businessName, 'trustpilot', address || undefined, website || undefined);
+      trustpilotUrl = await findUrlViaAI(businessName, 'trustpilot', address ?? undefined, website ?? undefined);
     }
     
     // Only include if we have a verified URL - never show guessed/search URLs
@@ -564,10 +564,10 @@ export async function GET(request: NextRequest) {
     // TripAdvisor - hospitality only (restaurants, hotels, attractions)
     // ONLY use verified URLs, never guess
     if (isHospitality) {
-      let tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address || undefined);
+      let tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address ?? undefined);
       
       if (!tripadvisorUrl) {
-        tripadvisorUrl = await findUrlViaAI(businessName, 'tripadvisor', address || undefined, website || undefined);
+        tripadvisorUrl = await findUrlViaAI(businessName, 'tripadvisor', address ?? undefined, website ?? undefined);
       }
       
       // Only include if verified
@@ -584,10 +584,10 @@ export async function GET(request: NextRequest) {
     // ONLY use verified URLs, never guess
     if (isTrade) {
       // Yell - SerpAPI or AI search only
-      let yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address || undefined);
+      let yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address ?? undefined);
       
       if (!yellUrl) {
-        yellUrl = await findUrlViaAI(businessName, 'yell', address || undefined, website || undefined);
+        yellUrl = await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined);
       }
       
       if (yellUrl) {
@@ -599,10 +599,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Checkatrade - SerpAPI or AI search only
-      let checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address || undefined);
+      let checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address ?? undefined);
       
       if (!checkatradeUrl) {
-        checkatradeUrl = await findUrlViaAI(businessName, 'checkatrade', address || undefined, website || undefined);
+        checkatradeUrl = await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined);
       }
       
       if (checkatradeUrl) {
@@ -614,10 +614,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Rated People - SerpAPI or AI search only
-      let ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address || undefined);
+      let ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address ?? undefined);
       
       if (!ratedpeopleUrl) {
-        ratedpeopleUrl = await findUrlViaAI(businessName, 'ratedpeople', address || undefined, website || undefined);
+        ratedpeopleUrl = await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined);
       }
       
       if (ratedpeopleUrl) {
@@ -629,10 +629,10 @@ export async function GET(request: NextRequest) {
       }
 
       // TrustATrader - SerpAPI or AI search only
-      let trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address || undefined);
+      let trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address ?? undefined);
       
       if (!trustatraderUrl) {
-        trustatraderUrl = await findUrlViaAI(businessName, 'trustatrader', address || undefined, website || undefined);
+        trustatraderUrl = await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined);
       }
       
       if (trustatraderUrl) {
@@ -646,7 +646,7 @@ export async function GET(request: NextRequest) {
 
     // Cache results before returning
     if (cachingEnabled) {
-      await cacheLinks(businessName, address || undefined, website || undefined, links);
+      await cacheLinks(businessName, address ?? undefined, website ?? undefined, links);
     }
 
     return NextResponse.json({ success: true, data: links, cached: false });
