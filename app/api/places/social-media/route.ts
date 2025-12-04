@@ -230,6 +230,103 @@ async function tryMultipleUrls(urls: string[], timeoutMs: number = 2000): Promis
   return null;
 }
 
+// Use AI (OpenAI or Gemini) to find the correct platform URL
+async function findUrlViaAI(businessName: string, platform: string, address?: string, website?: string): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  
+  if (!openaiKey && !geminiKey) {
+    return null;
+  }
+
+  try {
+    const prompt = `Find the exact ${platform} review page URL for this business:
+Business Name: ${businessName}
+${address ? `Address: ${address}` : ''}
+${website ? `Website: ${website}` : ''}
+
+Instructions:
+- Search for their official ${platform} page
+- Return ONLY the direct ${platform} review/profile URL
+- For Trustpilot, it should be in format: https://www.trustpilot.com/review/domain-name
+- If you cannot find a verified page, return "NOT_FOUND"
+- Do not guess or make up URLs
+- Verify the business actually has a ${platform} presence
+
+Response format: Just the URL or "NOT_FOUND"`;
+
+    let url: string | null = null;
+
+    // Try OpenAI first (GPT-4)
+    if (openaiKey) {
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            max_tokens: 200,
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content?.trim();
+          if (content && content !== 'NOT_FOUND' && content.startsWith('http')) {
+            url = content;
+          }
+        }
+      } catch (error) {
+        console.error('OpenAI search failed:', error);
+      }
+    }
+
+    // Try Gemini if OpenAI failed or not available
+    if (!url && geminiKey) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 200,
+            },
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (content && content !== 'NOT_FOUND' && content.startsWith('http')) {
+            url = content;
+          }
+        }
+      } catch (error) {
+        console.error('Gemini search failed:', error);
+      }
+    }
+
+    // Verify the URL actually works before returning it
+    if (url && await verifyUrl(url, 5000)) {
+      return url;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error finding ${platform} via AI:`, error);
+    return null;
+  }
+}
+
 // Search Google via SerpAPI to find actual business page URLs
 async function findUrlViaSerpAPI(businessName: string, platform: string, address?: string): Promise<string | null> {
   const serpApiKey = process.env.SERPAPI_KEY;
@@ -441,122 +538,110 @@ export async function GET(request: NextRequest) {
     // Filter platforms based on business type to avoid irrelevant searches
     // Returns verified URLs when found, search URLs as fallback
     
-    // Trustpilot - universal platform (all business types)
-    const trustpilotSearchUrl = `https://www.trustpilot.com/search?query=${encodeURIComponent(businessName)}`;
-    const trustpilotSlug = businessNameHyphen.replace(/[^a-z0-9-]/g, '');
-    let trustpilotUrl = await tryMultipleUrls([
-      `https://www.trustpilot.com/review/${trustpilotSlug}`,
-      `https://uk.trustpilot.com/review/${trustpilotSlug}`,
-      `https://www.trustpilot.com/review/${businessNameHyphen}`,
-      `https://www.trustpilot.com/review/www.${businessNameHyphen}.com`,
-      `https://www.trustpilot.com/review/${businessNameClean}`,
-    ], 2000);
+    // Trustpilot - ONLY use verified URLs, never guess
+    // Priority: 1) Scraped from website, 2) SerpAPI, 3) AI search
+    let trustpilotUrl = links.trustpilot?.reviewUrl || links.trustpilot?.profileUrl;
     
-    // If no direct URL found, try Google search via SerpAPI
     if (!trustpilotUrl) {
+      // Try Google search via SerpAPI
       trustpilotUrl = await findUrlViaSerpAPI(businessName, 'trustpilot', address || undefined);
     }
     
-    links.trustpilot = {
-      profileUrl: trustpilotUrl || trustpilotSearchUrl,
-      reviewUrl: trustpilotUrl || trustpilotSearchUrl,
-      searchUrl: trustpilotSearchUrl,
-      verified: !!trustpilotUrl,
-    };
-
-    // TripAdvisor - hospitality only (restaurants, hotels, attractions)
-    if (isHospitality) {
-      const tripadvisorSearchUrl = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(businessName)}${address ? `+${encodeURIComponent(address)}` : ''}`;
-      let tripadvisorUrl = await tryMultipleUrls([
-        `https://www.tripadvisor.com/${businessNameHyphen}`,
-        `https://www.tripadvisor.co.uk/${businessNameHyphen}`,
-      ], 2000);
-      
-      if (!tripadvisorUrl) {
-        tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address || undefined);
-      }
-      
-      links.tripadvisor = {
-        profileUrl: tripadvisorUrl || tripadvisorSearchUrl,
-        reviewUrl: tripadvisorUrl || tripadvisorSearchUrl,
-        searchUrl: tripadvisorSearchUrl,
-        verified: !!tripadvisorUrl,
+    if (!trustpilotUrl) {
+      // Try AI-powered search as last resort
+      trustpilotUrl = await findUrlViaAI(businessName, 'trustpilot', address || undefined, website || undefined);
+    }
+    
+    // Only include if we have a verified URL - never show guessed/search URLs
+    if (trustpilotUrl) {
+      links.trustpilot = {
+        profileUrl: trustpilotUrl,
+        reviewUrl: trustpilotUrl,
+        verified: true,
       };
     }
 
+    // TripAdvisor - hospitality only (restaurants, hotels, attractions)
+    // ONLY use verified URLs, never guess
+    if (isHospitality) {
+      let tripadvisorUrl = await findUrlViaSerpAPI(businessName, 'tripadvisor', address || undefined);
+      
+      if (!tripadvisorUrl) {
+        tripadvisorUrl = await findUrlViaAI(businessName, 'tripadvisor', address || undefined, website || undefined);
+      }
+      
+      // Only include if verified
+      if (tripadvisorUrl) {
+        links.tripadvisor = {
+          profileUrl: tripadvisorUrl,
+          reviewUrl: tripadvisorUrl,
+          verified: true,
+        };
+      }
+    }
+
     // Trade-specific platforms (only for trade businesses)
+    // ONLY use verified URLs, never guess
     if (isTrade) {
-      // Yell - try direct business page, then SerpAPI
-      const yellSearchUrl = `https://www.yell.com/search?keywords=${encodeURIComponent(businessName)}`;
-      let yellUrl = await tryMultipleUrls([
-        `https://www.yell.com/biz/${businessNameHyphen}/`,
-        `https://www.yell.com/biz/${businessNameClean}/`,
-      ], 2000);
+      // Yell - SerpAPI or AI search only
+      let yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address || undefined);
       
       if (!yellUrl) {
-        yellUrl = await findUrlViaSerpAPI(businessName, 'yell', address || undefined);
+        yellUrl = await findUrlViaAI(businessName, 'yell', address || undefined, website || undefined);
       }
       
-      links.yell = {
-        profileUrl: yellUrl || yellSearchUrl,
-        reviewUrl: yellUrl || yellSearchUrl,
-        searchUrl: yellSearchUrl,
-        verified: !!yellUrl,
-      };
+      if (yellUrl) {
+        links.yell = {
+          profileUrl: yellUrl,
+          reviewUrl: yellUrl,
+          verified: true,
+        };
+      }
 
-      // Checkatrade - try direct trades page, then SerpAPI
-      const checkatradeSearchUrl = `https://www.checkatrade.com/search?query=${encodeURIComponent(businessName)}`;
-      let checkatradeUrl = await tryMultipleUrls([
-        `https://www.checkatrade.com/trades/${businessNameHyphen}`,
-        `https://www.checkatrade.com/trades/${businessNameClean}`,
-      ], 2000);
+      // Checkatrade - SerpAPI or AI search only
+      let checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address || undefined);
       
       if (!checkatradeUrl) {
-        checkatradeUrl = await findUrlViaSerpAPI(businessName, 'checkatrade', address || undefined);
+        checkatradeUrl = await findUrlViaAI(businessName, 'checkatrade', address || undefined, website || undefined);
       }
       
-      links.checkatrade = {
-        profileUrl: checkatradeUrl || checkatradeSearchUrl,
-        reviewUrl: checkatradeUrl || checkatradeSearchUrl,
-        searchUrl: checkatradeSearchUrl,
-        verified: !!checkatradeUrl,
-      };
+      if (checkatradeUrl) {
+        links.checkatrade = {
+          profileUrl: checkatradeUrl,
+          reviewUrl: checkatradeUrl,
+          verified: true,
+        };
+      }
 
-      // Rated People - try direct tradesman page, then SerpAPI
-      const ratedpeopleSearchUrl = `https://www.ratedpeople.com/search?keywords=${encodeURIComponent(businessName)}`;
-      let ratedpeopleUrl = await tryMultipleUrls([
-        `https://www.ratedpeople.com/tradesman/${businessNameHyphen}`,
-        `https://www.ratedpeople.com/tradesman/${businessNameClean}`,
-      ], 2000);
+      // Rated People - SerpAPI or AI search only
+      let ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address || undefined);
       
       if (!ratedpeopleUrl) {
-        ratedpeopleUrl = await findUrlViaSerpAPI(businessName, 'ratedpeople', address || undefined);
+        ratedpeopleUrl = await findUrlViaAI(businessName, 'ratedpeople', address || undefined, website || undefined);
       }
       
-      links.ratedpeople = {
-        profileUrl: ratedpeopleUrl || ratedpeopleSearchUrl,
-        reviewUrl: ratedpeopleUrl || ratedpeopleSearchUrl,
-        searchUrl: ratedpeopleSearchUrl,
-        verified: !!ratedpeopleUrl,
-      };
+      if (ratedpeopleUrl) {
+        links.ratedpeople = {
+          profileUrl: ratedpeopleUrl,
+          reviewUrl: ratedpeopleUrl,
+          verified: true,
+        };
+      }
 
-      // TrustATrader - try direct trader page, then SerpAPI
-      const trustatraderSearchUrl = `https://www.trustatrader.com/search?keywords=${encodeURIComponent(businessName)}`;
-      let trustatraderUrl = await tryMultipleUrls([
-        `https://www.trustatrader.com/trader/${businessNameHyphen}`,
-        `https://www.trustatrader.com/trader/${businessNameClean}`,
-      ], 2000);
+      // TrustATrader - SerpAPI or AI search only
+      let trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address || undefined);
       
       if (!trustatraderUrl) {
-        trustatraderUrl = await findUrlViaSerpAPI(businessName, 'trustatrader', address || undefined);
+        trustatraderUrl = await findUrlViaAI(businessName, 'trustatrader', address || undefined, website || undefined);
       }
       
-      links.trustatrader = {
-        profileUrl: trustatraderUrl || trustatraderSearchUrl,
-        reviewUrl: trustatraderUrl || trustatraderSearchUrl,
-        searchUrl: trustatraderSearchUrl,
-        verified: !!trustatraderUrl,
-      };
+      if (trustatraderUrl) {
+        links.trustatrader = {
+          profileUrl: trustatraderUrl,
+          reviewUrl: trustatraderUrl,
+          verified: true,
+        };
+      }
     }
 
     // Cache results before returning
