@@ -485,14 +485,21 @@ export async function GET(request: NextRequest) {
     const isHospitality = isHospitalityBusiness(businessName);
 
     // Social media platforms - try to find verified accounts via SerpAPI
-    // Try basic URL patterns first, then search via Google
-    const facebookGuessUrl = `https://www.facebook.com/${businessNameClean}`;
-    const facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined ||
-                       await tryMultipleUrls([facebookGuessUrl], 3000);
-    links.facebook = { 
-      profileUrl: facebookUrl || facebookGuessUrl, 
-      verified: !!facebookUrl 
-    };
+    // Try Google search first, then try AI as fallback, never guess without verification
+    let facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined;
+    
+    // If SerpAPI didn't find it, try AI search
+    if (!facebookUrl) {
+      facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    
+    // ONLY include if we found a verified URL - never show unverified guesses
+    if (facebookUrl) {
+      links.facebook = { 
+        profileUrl: facebookUrl, 
+        verified: true 
+      };
+    }
 
     const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
     const instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined ||
