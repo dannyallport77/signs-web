@@ -501,37 +501,53 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const instagramGuessUrl = `https://www.instagram.com/${businessNameClean}`;
-    const instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined ||
-                        await tryMultipleUrls([instagramGuessUrl], 3000);
-    links.instagram = { 
-      profileUrl: instagramUrl || instagramGuessUrl, 
-      verified: !!instagramUrl 
-    };
+    // Instagram - search via SerpAPI, then AI, only show if verified
+    let instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined;
+    if (!instagramUrl) {
+      instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    if (instagramUrl) {
+      links.instagram = { 
+        profileUrl: instagramUrl, 
+        verified: true 
+      };
+    }
 
-    const twitterGuessUrl = `https://twitter.com/${businessNameClean}`;
-    const twitterUrl = (await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined)) ?? undefined ||
-                      await tryMultipleUrls([twitterGuessUrl], 3000);
-    links.twitter = { 
-      profileUrl: twitterUrl || twitterGuessUrl, 
-      verified: !!twitterUrl 
-    };
+    // Twitter/X - search via SerpAPI, then AI, only show if verified
+    let twitterUrl = (await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined)) ?? undefined;
+    if (!twitterUrl) {
+      twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    if (twitterUrl) {
+      links.twitter = { 
+        profileUrl: twitterUrl, 
+        verified: true 
+      };
+    }
 
-    const tiktokGuessUrl = `https://www.tiktok.com/@${businessNameClean}`;
-    const tiktokUrl = (await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined)) ?? undefined ||
-                     await tryMultipleUrls([tiktokGuessUrl], 3000);
-    links.tiktok = { 
-      profileUrl: tiktokUrl || tiktokGuessUrl, 
-      verified: !!tiktokUrl 
-    };
+    // TikTok - search via SerpAPI, then AI, only show if verified
+    let tiktokUrl = (await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined)) ?? undefined;
+    if (!tiktokUrl) {
+      tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    if (tiktokUrl) {
+      links.tiktok = { 
+        profileUrl: tiktokUrl, 
+        verified: true 
+      };
+    }
 
-    const linkedinGuessUrl = `https://www.linkedin.com/company/${businessNameHyphen}`;
-    const linkedinUrl = (await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined)) ?? undefined ||
-                       await tryMultipleUrls([linkedinGuessUrl], 3000);
-    links.linkedin = { 
-      profileUrl: linkedinUrl || linkedinGuessUrl, 
-      verified: !!linkedinUrl 
-    };
+    // LinkedIn - search via SerpAPI, then AI, only show if verified
+    let linkedinUrl = (await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined)) ?? undefined;
+    if (!linkedinUrl) {
+      linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    if (linkedinUrl) {
+      links.linkedin = { 
+        profileUrl: linkedinUrl, 
+        verified: true 
+      };
+    }
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
     const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
