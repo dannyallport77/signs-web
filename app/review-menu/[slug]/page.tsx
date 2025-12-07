@@ -68,6 +68,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
     id: string;
     href: string;
     icon: string;
+    logoPath?: string;
     label: string;
     accent: string;
     isPromo?: boolean;
@@ -83,6 +84,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
       id: platform.id,
       href: `/review-menu/${menu.slug}/platform/${platform.id}`,
       icon: platform.icon || preset?.icon || '⭐',
+      logoPath: preset?.logoPath,
       label: platform.name,
       accent: preset?.accent || 'from-indigo-500 to-indigo-600',
       isPromo: platform.platformKey === 'fruitMachine',
@@ -149,6 +151,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
         const preset = PLATFORM_PRESET_MAP[platform.platformKey as PlatformKey];
         const accent = preset?.accent || 'from-indigo-500 to-indigo-600';
         const icon = platform.icon || preset?.icon || '⭐';
+        const logoPath = preset?.logoPath;
         const description = preset?.description || 'Tap to continue to this platform.';
         const isFruitMachine = platform.platformKey === 'fruitMachine';
         const ctaLabel = isFruitMachine ? 'Launch Promotion' : 'Leave Review';
@@ -163,8 +166,17 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
           >
             <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
-                  {icon}
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl overflow-hidden relative">
+                  {logoPath ? (
+                    <Image
+                      src={logoPath}
+                      alt={platform.name}
+                      fill
+                      className="object-contain p-2"
+                    />
+                  ) : (
+                    icon
+                  )}
                 </div>
                 <div>
                   <p className="text-xl font-semibold">{platform.name}</p>
@@ -293,6 +305,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
     
     const googlePreset = PLATFORM_PRESET_MAP['google'];
     const googleAccent = googlePreset?.accent || 'from-amber-400 to-orange-500';
+    const googleLogoPath = googlePreset?.logoPath;
     
     // Calculate positions
     const count = satellites.length;
@@ -306,9 +319,20 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
             rel="noopener noreferrer"
             className={`group relative flex h-48 w-48 flex-col items-center justify-center rounded-full bg-gradient-to-br ${googleAccent} p-1 shadow-[0_0_50px_rgba(251,191,36,0.3)] transition-transform hover:scale-105 active:scale-95`}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/90 text-center">
-              <span className="text-6xl mb-2">⭐</span>
-              <span className="font-bold text-xl">Review on<br/>Google</span>
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/90 text-center relative overflow-hidden">
+              {googleLogoPath ? (
+                <div className="relative w-24 h-24 mb-2">
+                  <Image
+                    src={googleLogoPath}
+                    alt="Google"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              ) : (
+                <span className="text-6xl mb-2">⭐</span>
+              )}
+              <span className="font-bold text-xl relative z-10">Review on<br/>Google</span>
             </div>
           </a>
         </div>
@@ -326,9 +350,20 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
             className={`group relative flex h-40 w-40 flex-col items-center justify-center rounded-full bg-gradient-to-br ${googleAccent} p-1 shadow-[0_0_40px_rgba(251,191,36,0.4)] transition-transform hover:scale-105 active:scale-95 animate-pulse`}
             style={{ animationDuration: '3s' }}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/95 text-center p-2">
-              <span className="text-5xl mb-1">⭐</span>
-              <span className="font-bold text-lg leading-tight">Review on<br/>Google</span>
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/95 text-center p-2 relative overflow-hidden">
+              {googleLogoPath ? (
+                <div className="relative w-20 h-20 mb-1">
+                  <Image
+                    src={googleLogoPath}
+                    alt="Google"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              ) : (
+                <span className="text-5xl mb-1">⭐</span>
+              )}
+              <span className="font-bold text-lg leading-tight relative z-10">Review on<br/>Google</span>
             </div>
           </a>
         </div>
@@ -355,8 +390,17 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
                 className={`group flex flex-col items-center justify-center transition-transform hover:scale-110`}
               >
                 <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${item.accent} p-[2px] shadow-lg`}>
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-900/90 text-2xl">
-                    {item.icon}
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-900/90 text-2xl relative overflow-hidden">
+                    {item.logoPath ? (
+                      <Image
+                        src={item.logoPath}
+                        alt={item.label}
+                        fill
+                        className="object-contain p-3"
+                      />
+                    ) : (
+                      item.icon
+                    )}
                   </div>
                 </div>
                 <span className="mt-2 text-xs font-medium text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm whitespace-nowrap max-w-[100px] overflow-hidden text-ellipsis">

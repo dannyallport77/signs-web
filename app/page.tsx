@@ -94,8 +94,14 @@ export default function Home() {
         </div>
 
         {/* Product Categories */}
-        <div className="py-24 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-24 bg-white relative overflow-hidden">
+          {/* Background Blobs */}
+          <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+            <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-indigo-50/80 blur-3xl"></div>
+            <div className="absolute top-[20%] -right-[10%] w-[40%] h-[40%] rounded-full bg-purple-50/80 blur-3xl"></div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-indigo-600 font-semibold tracking-wide uppercase text-sm mb-3">Our Products</h2>
               <h3 className="text-4xl font-bold text-gray-900 mb-6">Choose Your Growth Tool</h3>
@@ -107,7 +113,7 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-8">
               <div className="group relative bg-gray-50 rounded-3xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
-                <div className="h-80 bg-white flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
+                <div className="h-80 bg-gray-100 flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
                   <span className="text-9xl filter drop-shadow-xl">🪧</span>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-8 z-20 translate-y-4 group-hover:translate-y-0 transition-transform">
@@ -121,7 +127,7 @@ export default function Home() {
 
               <div className="group relative bg-gray-50 rounded-3xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
-                <div className="h-80 bg-white flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
+                <div className="h-80 bg-gray-100 flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
                   <span className="text-9xl filter drop-shadow-xl">🏷️</span>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-8 z-20 translate-y-4 group-hover:translate-y-0 transition-transform">
@@ -135,7 +141,7 @@ export default function Home() {
 
               <div className="group relative bg-gray-50 rounded-3xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
-                <div className="h-80 bg-white flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
+                <div className="h-80 bg-gray-100 flex items-center justify-center p-8 group-hover:scale-105 transition-transform duration-500">
                   <span className="text-9xl filter drop-shadow-xl">🔑</span>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-8 z-20 translate-y-4 group-hover:translate-y-0 transition-transform">
@@ -191,12 +197,66 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Coming Soon Section */}
+        <div className="py-24 bg-gray-900 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 to-purple-900/90"></div>
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+          </div>
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="bg-white/5 backdrop-blur-lg rounded-3xl p-8 lg:p-12 border border-white/10">
+              <div className="lg:flex items-center justify-between gap-12">
+                <div className="lg:w-2/3">
+                  <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 rounded-full px-4 py-1.5 mb-6">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                    </span>
+                    <span className="text-indigo-200 text-sm font-medium tracking-wide uppercase">Coming Soon</span>
+                  </div>
+                  <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">The Ultimate Command Center</h2>
+                  <p className="text-lg text-gray-300 leading-relaxed max-w-2xl">
+                    We're building a fully integrated management portal to centralize your digital growth. Soon, you'll be able to view, manage, and analyze all your social media activity and reviews from one powerful dashboard.
+                  </p>
+                </div>
+                <div className="lg:w-1/3 mt-8 lg:mt-0">
+                  <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-1 shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-300">
+                    <div className="bg-gray-900 rounded-xl p-6 text-center">
+                      <div className="text-4xl mb-3">🚀</div>
+                      <h3 className="text-white font-bold text-lg mb-1">All-in-One Portal</h3>
+                      <p className="text-gray-400 text-sm">Review Management • Social Analytics • Growth Tracking</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* CTA Section */}
-        <div className="py-24 bg-white">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-24 bg-white relative overflow-hidden">
+          {/* Background Blobs */}
+          <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+            <div className="absolute bottom-0 left-1/4 w-[50%] h-[50%] rounded-full bg-blue-50/80 blur-3xl"></div>
+          </div>
+
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="bg-indigo-600 rounded-3xl p-12 text-center shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-              <div className="relative z-10">
+              <div className="absolute inset-0">
+                <div className="absolute inset-0 bg-indigo-900/80 z-10"></div>
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover opacity-50"
+                  suppressHydrationWarning
+                >
+                  <source src="/magick-signs-video.mp4" type="video/mp4" />
+                </video>
+              </div>
+              <div className="relative z-20">
                 <h2 className="text-4xl font-bold text-white mb-6">Ready to Transform Your Business?</h2>
                 <p className="text-indigo-100 mb-10 text-xl max-w-2xl mx-auto">
                   Join thousands of businesses using our NFC solutions to grow their online presence and reputation.
@@ -233,7 +293,7 @@ interface FeatureCardProps {
 
 function FeatureCard({ title, description, icon }: FeatureCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-8 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:-translate-y-1">
+    <div className="bg-gray-100 rounded-2xl shadow-sm p-8 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:-translate-y-1">
       <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-3xl mb-6">
         {icon}
       </div>

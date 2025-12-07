@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 import { PLATFORM_PRESET_MAP, PlatformKey } from '@/lib/reviewPlatforms';
 
@@ -77,6 +78,7 @@ export default async function ShortlinkRedirect({ params }: { params: Params }) 
             const preset = PLATFORM_PRESET_MAP[platform.platformKey as PlatformKey];
             const accent = preset?.accent || 'from-indigo-500 to-indigo-600';
             const icon = platform.icon || preset?.icon || '⭐';
+            const logoPath = preset?.logoPath;
             const description = preset?.description || 'Tap to continue to this platform.';
             const isFruitMachine = platform.platformKey === 'fruitMachine';
             const ctaLabel = isFruitMachine ? 'Launch Promotion' : 'Leave Review';
@@ -91,8 +93,17 @@ export default async function ShortlinkRedirect({ params }: { params: Params }) 
               >
                 <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
-                      {icon}
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl relative overflow-hidden">
+                      {logoPath ? (
+                        <Image
+                          src={logoPath}
+                          alt={platform.name}
+                          fill
+                          className="object-contain p-2"
+                        />
+                      ) : (
+                        icon
+                      )}
                     </div>
                     <div>
                       <p className="text-xl font-semibold">{platform.name}</p>

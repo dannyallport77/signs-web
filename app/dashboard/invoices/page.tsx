@@ -105,6 +105,11 @@ export default function InvoicesPage() {
       const valA = a[key];
       const valB = b[key];
 
+      // Handle null/undefined
+      if (valA == null && valB == null) return 0;
+      if (valA == null) return direction === 'asc' ? -1 : 1;
+      if (valB == null) return direction === 'asc' ? 1 : -1;
+
       if (typeof valA === 'string' && typeof valB === 'string') {
         return direction === 'asc' 
           ? valA.localeCompare(valB)

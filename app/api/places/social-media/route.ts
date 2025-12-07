@@ -8,7 +8,6 @@ interface SocialMediaLinks {
   instagram?: { profileUrl?: string; reviewUrl?: string; verified?: boolean };
   tiktok?: { profileUrl?: string; verified?: boolean };
   twitter?: { profileUrl?: string; verified?: boolean };
-  pinterest?: { profileUrl?: string; verified?: boolean };
   youtube?: { profileUrl?: string; verified?: boolean };
   linkedin?: { profileUrl?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -165,15 +164,6 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
       }
     }
 
-    // Find Pinterest
-    for (const link of allLinks) {
-      if (link.includes('pinterest.com/') || link.includes('pinterest.co.uk/')) {
-        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
-        links.pinterest = { profileUrl: url, verified: true };
-        break;
-      }
-    }
-
     // Find YouTube
     for (const link of allLinks) {
       if (link.includes('youtube.com/') || link.includes('youtu.be/')) {
@@ -292,6 +282,71 @@ async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<boolean
   } catch (error) {
     return false;
   }
+}
+
+// Second-level verification: Check if the page content actually matches the business
+async function verifyUrlMatchesBusiness(url: string, businessName: string, timeoutMs: number = 5000): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) return false;
+    
+    const html = await response.text();
+    const htmlLower = html.toLowerCase();
+    
+    // Clean business name - remove common suffixes and get core words
+    const cleanName = businessName
+      .toLowerCase()
+      .replace(/\s+(ltd|limited|inc|llc|plc|restaurant|cafe|bar|pub|hotel|grill|house)\.?$/gi, '')
+      .trim();
+    
+    // Split into words and filter short ones
+    const nameWords = cleanName
+      .split(/[\s,&-]+/)
+      .filter(word => word.length >= 3)
+      .filter(word => !['the', 'and', 'for'].includes(word));
+    
+    if (nameWords.length === 0) return false;
+    
+    // Check if at least 60% of significant words appear in the page
+    const matchCount = nameWords.filter(word => htmlLower.includes(word)).length;
+    const matchRatio = matchCount / nameWords.length;
+    
+    // Also check URL itself for business name words
+    const urlLower = url.toLowerCase();
+    const urlMatchCount = nameWords.filter(word => urlLower.includes(word)).length;
+    const urlMatchRatio = urlMatchCount / nameWords.length;
+    
+    // Pass if either:
+    // 1. 60%+ of words found in page content, OR
+    // 2. 50%+ of words found in URL itself
+    return matchRatio >= 0.6 || urlMatchRatio >= 0.5;
+  } catch (error) {
+    console.error('Error verifying URL matches business:', error);
+    return false;
+  }
+}
+
+// Combined verification: URL exists AND matches business
+async function verifyUrlWithBusinessMatch(url: string, businessName: string, timeoutMs: number = 5000): Promise<boolean> {
+  // First check if URL is accessible
+  const exists = await verifyUrl(url, timeoutMs);
+  if (!exists) return false;
+  
+  // Then verify content matches business
+  return verifyUrlMatchesBusiness(url, businessName, timeoutMs);
 }
 
 // Try multiple URL patterns for a platform
@@ -453,7 +508,6 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
         facebook: ['facebook.com/', 'fb.com/'],
         instagram: ['instagram.com/'],
         twitter: ['twitter.com/', 'x.com/'],
-        pinterest: ['pinterest.com/', 'pinterest.co.uk/'],
         youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
         tiktok: ['tiktok.com/@'],
         linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
@@ -605,6 +659,7 @@ export async function GET(request: NextRequest) {
 
     // Social media platforms - try to find verified accounts via SerpAPI
     // Try Google search first, then try AI as fallback, never guess without verification
+    // Second-level verification: check page content matches business name
     
     if (!links.facebook) {
       let facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined;
@@ -614,8 +669,8 @@ export async function GET(request: NextRequest) {
         facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      // ONLY include if we found a verified URL - never show unverified guesses
-      if (facebookUrl) {
+      // Second-level verification: check if page content matches business
+      if (facebookUrl && await verifyUrlMatchesBusiness(facebookUrl, businessName, 5000)) {
         const cleanUrl = facebookUrl.endsWith('/') ? facebookUrl.slice(0, -1) : facebookUrl;
         links.facebook = { 
           profileUrl: facebookUrl, 
@@ -631,7 +686,8 @@ export async function GET(request: NextRequest) {
       if (!instagramUrl) {
         instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
       }
-      if (instagramUrl) {
+      // Second-level verification
+      if (instagramUrl && await verifyUrlMatchesBusiness(instagramUrl, businessName, 5000)) {
         links.instagram = { 
           profileUrl: instagramUrl, 
           verified: true 
@@ -645,23 +701,10 @@ export async function GET(request: NextRequest) {
       if (!twitterUrl) {
         twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
       }
-      if (twitterUrl) {
+      // Second-level verification
+      if (twitterUrl && await verifyUrlMatchesBusiness(twitterUrl, businessName, 5000)) {
         links.twitter = { 
           profileUrl: twitterUrl, 
-          verified: true 
-        };
-      }
-    }
-
-    // Pinterest - search via SerpAPI, then AI, only show if verified
-    if (!links.pinterest) {
-      let pinterestUrl = (await findUrlViaSerpAPI(businessName, 'pinterest', address ?? undefined)) ?? undefined;
-      if (!pinterestUrl) {
-        pinterestUrl = (await findUrlViaAI(businessName, 'pinterest', address ?? undefined, website ?? undefined)) ?? undefined;
-      }
-      if (pinterestUrl) {
-        links.pinterest = { 
-          profileUrl: pinterestUrl, 
           verified: true 
         };
       }
@@ -673,7 +716,8 @@ export async function GET(request: NextRequest) {
       if (!youtubeUrl) {
         youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
       }
-      if (youtubeUrl) {
+      // Second-level verification
+      if (youtubeUrl && await verifyUrlMatchesBusiness(youtubeUrl, businessName, 5000)) {
         links.youtube = { 
           profileUrl: youtubeUrl, 
           verified: true 
@@ -687,7 +731,8 @@ export async function GET(request: NextRequest) {
       if (!tiktokUrl) {
         tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
       }
-      if (tiktokUrl) {
+      // Second-level verification
+      if (tiktokUrl && await verifyUrlMatchesBusiness(tiktokUrl, businessName, 5000)) {
         links.tiktok = { 
           profileUrl: tiktokUrl, 
           verified: true 
@@ -701,7 +746,8 @@ export async function GET(request: NextRequest) {
       if (!linkedinUrl) {
         linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
       }
-      if (linkedinUrl) {
+      // Second-level verification
+      if (linkedinUrl && await verifyUrlMatchesBusiness(linkedinUrl, businessName, 5000)) {
         links.linkedin = { 
           profileUrl: linkedinUrl, 
           verified: true 
@@ -741,13 +787,15 @@ export async function GET(request: NextRequest) {
       trustpilotUrl = (await findUrlViaAI(businessName, 'trustpilot', address ?? undefined, website ?? undefined)) ?? undefined;
     }
     
-    // Only include if we have a verified URL - never show guessed/search URLs
-    if (trustpilotUrl) {
+    // Second-level verification for Trustpilot
+    if (trustpilotUrl && await verifyUrlMatchesBusiness(trustpilotUrl, businessName, 5000)) {
       links.trustpilot = {
         profileUrl: trustpilotUrl,
         reviewUrl: trustpilotUrl,
         verified: true,
       };
+    } else {
+      delete links.trustpilot; // Remove if verification failed
     }
 
     // TripAdvisor - hospitality only (restaurants, hotels, attractions)
@@ -759,13 +807,18 @@ export async function GET(request: NextRequest) {
         tripadvisorUrl = (await findUrlViaAI(businessName, 'tripadvisor', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      // Only include if verified
+      // Only include if verified AND page content matches business name
       if (tripadvisorUrl) {
-        links.tripadvisor = {
-          profileUrl: tripadvisorUrl,
-          reviewUrl: tripadvisorUrl,
-          verified: true,
-        };
+        const isVerified = await verifyUrlMatchesBusiness(tripadvisorUrl, businessName);
+        if (isVerified) {
+          links.tripadvisor = {
+            profileUrl: tripadvisorUrl,
+            reviewUrl: tripadvisorUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`TripAdvisor URL ${tripadvisorUrl} failed business name verification`);
+        }
       }
     }
 
@@ -781,11 +834,16 @@ export async function GET(request: NextRequest) {
         }
         
         if (yellUrl) {
-          links.yell = {
-            profileUrl: yellUrl,
-            reviewUrl: yellUrl,
-            verified: true,
-          };
+          const isVerified = await verifyUrlMatchesBusiness(yellUrl, businessName);
+          if (isVerified) {
+            links.yell = {
+              profileUrl: yellUrl,
+              reviewUrl: yellUrl,
+              verified: true,
+            };
+          } else {
+            console.log(`Yell URL ${yellUrl} failed business name verification`);
+          }
         }
       }
 
@@ -798,11 +856,16 @@ export async function GET(request: NextRequest) {
         }
         
         if (checkatradeUrl) {
-          links.checkatrade = {
-            profileUrl: checkatradeUrl,
-            reviewUrl: checkatradeUrl,
-            verified: true,
-          };
+          const isVerified = await verifyUrlMatchesBusiness(checkatradeUrl, businessName);
+          if (isVerified) {
+            links.checkatrade = {
+              profileUrl: checkatradeUrl,
+              reviewUrl: checkatradeUrl,
+              verified: true,
+            };
+          } else {
+            console.log(`Checkatrade URL ${checkatradeUrl} failed business name verification`);
+          }
         }
       }
 
@@ -815,11 +878,16 @@ export async function GET(request: NextRequest) {
         }
         
         if (ratedpeopleUrl) {
-          links.ratedpeople = {
-            profileUrl: ratedpeopleUrl,
-            reviewUrl: ratedpeopleUrl,
-            verified: true,
-          };
+          const isVerified = await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName);
+          if (isVerified) {
+            links.ratedpeople = {
+              profileUrl: ratedpeopleUrl,
+              reviewUrl: ratedpeopleUrl,
+              verified: true,
+            };
+          } else {
+            console.log(`Rated People URL ${ratedpeopleUrl} failed business name verification`);
+          }
         }
       }
 
@@ -832,11 +900,16 @@ export async function GET(request: NextRequest) {
         }
         
         if (trustatraderUrl) {
-          links.trustatrader = {
-            profileUrl: trustatraderUrl,
-            reviewUrl: trustatraderUrl,
-            verified: true,
-          };
+          const isVerified = await verifyUrlMatchesBusiness(trustatraderUrl, businessName);
+          if (isVerified) {
+            links.trustatrader = {
+              profileUrl: trustatraderUrl,
+              reviewUrl: trustatraderUrl,
+              verified: true,
+            };
+          } else {
+            console.log(`TrustATrader URL ${trustatraderUrl} failed business name verification`);
+          }
         }
       }
     }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PLATFORM_PRESETS, PlatformKey } from '@/lib/reviewPlatforms';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface ReviewMenuSummary {
   id: string;
@@ -293,7 +294,18 @@ export default function ReviewMenusPage() {
                         </label>
                         <p className="text-sm text-gray-500 mt-1">{preset.description}</p>
                       </div>
-                      <span className="text-2xl" aria-hidden>{preset.icon}</span>
+                      {preset.logoPath ? (
+                        <div className="relative h-10 w-10 flex-shrink-0">
+                          <Image
+                            src={preset.logoPath}
+                            alt={preset.label}
+                            fill
+                            className="object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-2xl" aria-hidden>{preset.icon}</span>
+                      )}
                     </div>
                     <div className="mt-4 grid md:grid-cols-2 gap-4">
                       <div>

@@ -20,6 +20,7 @@ export interface PlatformPreset {
   label: string;
   description: string;
   icon: string;
+  logoPath?: string;
   accent: string;
 }
 
@@ -29,6 +30,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Google Reviews',
     description: 'Send customers directly to your Google review form.',
     icon: '⭐',
+    logoPath: '/platform-logos/google.png',
     accent: 'from-amber-400 to-orange-500',
   },
   {
@@ -36,6 +38,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Trustpilot',
     description: 'Drive trust with public Trustpilot testimonials.',
     icon: '🟢',
+    logoPath: '/platform-logos/trustpilot.png',
     accent: 'from-emerald-500 to-emerald-600',
   },
   {
@@ -43,6 +46,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Facebook',
     description: 'Collect recommendations on your Facebook page.',
     icon: '📘',
+    logoPath: '/platform-logos/facebook.png',
     accent: 'from-blue-500 to-blue-600',
   },
   {
@@ -50,6 +54,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Instagram',
     description: 'Grow your followers and brand reach on Instagram.',
     icon: '📸',
+    logoPath: '/platform-logos/instagram.png',
     accent: 'from-pink-500 via-red-500 to-yellow-500',
   },
   {
@@ -57,13 +62,15 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'TikTok',
     description: 'Send users to your TikTok profile or hashtag challenge.',
     icon: '🎵',
+    logoPath: '/platform-logos/tiktok.png',
     accent: 'from-gray-900 to-slate-900',
   },
   {
     key: 'twitter',
-    label: 'X / Twitter',
+    label: 'X (Twitter)',
     description: 'Boost social proof through reposts and mentions.',
     icon: '🐦',
+    logoPath: '/platform-logos/twitter.png',
     accent: 'from-slate-800 to-slate-900',
   },
   {
@@ -71,6 +78,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'LinkedIn',
     description: 'Collect B2B testimonials and recommendations.',
     icon: '💼',
+    logoPath: '/platform-logos/linkedin.png',
     accent: 'from-sky-500 to-sky-600',
   },
   {
@@ -78,6 +86,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Tripadvisor',
     description: 'Capture hospitality reviews on Tripadvisor.',
     icon: '🦉',
+    logoPath: '/platform-logos/tripadvisor.png',
     accent: 'from-lime-500 to-green-600',
   },
   {
@@ -85,6 +94,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Yell',
     description: 'Push satisfied customers to review on Yell.',
     icon: '🟡',
+    logoPath: '/platform-logos/yell.png',
     accent: 'from-yellow-400 to-yellow-500',
   },
   {
@@ -92,6 +102,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Checkatrade',
     description: 'Ideal for tradespeople that rely on Checkatrade.',
     icon: '🛠️',
+    logoPath: '/platform-logos/checkatrade.png',
     accent: 'from-cyan-500 to-blue-500',
   },
   {
@@ -99,6 +110,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'Rated People',
     description: 'Collect trusted homeowner feedback.',
     icon: '🏡',
+    logoPath: '/platform-logos/ratedpeople.png',
     accent: 'from-rose-500 to-rose-600',
   },
   {
@@ -106,6 +118,7 @@ export const PLATFORM_PRESETS: PlatformPreset[] = [
     label: 'TrustATrader',
     description: 'Direct household clients to TrustATrader profiles.',
     icon: '🧰',
+    logoPath: '/platform-logos/trustatrader.png',
     accent: 'from-indigo-500 to-indigo-600',
   },
   {

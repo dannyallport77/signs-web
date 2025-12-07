@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PLATFORM_PRESETS, PlatformKey } from '@/lib/reviewPlatforms';
 
 interface Platform {
@@ -494,7 +495,18 @@ export default function MenuEditorPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-3">
-                        <span className="text-2xl">{preset.icon}</span>
+                        {preset.logoPath ? (
+                          <div className="relative h-8 w-8 flex-shrink-0">
+                            <Image
+                              src={preset.logoPath}
+                              alt={preset.label}
+                              fill
+                              className="object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-2xl">{preset.icon}</span>
+                        )}
                         <div>
                           <p className="font-bold text-gray-900">{preset.label}</p>
                           <p className="text-sm text-gray-600">{preset.description}</p>
