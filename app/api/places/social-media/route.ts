@@ -8,6 +8,7 @@ interface SocialMediaLinks {
   instagram?: { profileUrl?: string; reviewUrl?: string; verified?: boolean };
   tiktok?: { profileUrl?: string; verified?: boolean };
   twitter?: { profileUrl?: string; verified?: boolean };
+  youtube?: { profileUrl?: string; verified?: boolean };
   linkedin?: { profileUrl?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   trustpilot?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -124,9 +125,23 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
     // Find Facebook
     for (const link of allLinks) {
       if (link.includes('facebook.com/') || link.includes('fb.com/')) {
-        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
-        links.facebook = { profileUrl: url, verified: true };
-        break;
+        try {
+          const urlObj = new URL(link.startsWith('http') ? link : `https://${link}`);
+          // Strip query params and hash to get clean profile URL
+          const url = urlObj.origin + urlObj.pathname;
+          const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+          
+          links.facebook = { 
+            profileUrl: url, 
+            reviewUrl: `${cleanUrl}/reviews`,
+            verified: true 
+          };
+          break;
+        } catch (e) {
+          // Fallback if URL parsing fails
+          const url = link.startsWith('http') ? link : `https://${link}`;
+          links.facebook = { profileUrl: url, verified: true };
+        }
       }
     }
 
@@ -145,6 +160,18 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
         const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
         links.twitter = { profileUrl: url, verified: true };
         break;
+      }
+    }
+
+    // Find YouTube
+    for (const link of allLinks) {
+      if (link.includes('youtube.com/') || link.includes('youtu.be/')) {
+        // Filter out specific video links if possible, but for now accept channel/user/c/@ links
+        if (link.includes('/channel/') || link.includes('/c/') || link.includes('/user/') || link.includes('/@')) {
+          const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+          links.youtube = { profileUrl: url, verified: true };
+          break;
+        }
       }
     }
 
@@ -360,6 +387,7 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
       facebook: ['facebook.com/', 'fb.com/'],
       instagram: ['instagram.com/'],
       twitter: ['twitter.com/', 'x.com/'],
+      youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
       tiktok: ['tiktok.com/@'],
       linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
       trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
@@ -433,6 +461,7 @@ export async function GET(request: NextRequest) {
     const businessName = request.nextUrl.searchParams.get('businessName');
     const address = request.nextUrl.searchParams.get('address');
     const website = request.nextUrl.searchParams.get('website');
+    const placeId = request.nextUrl.searchParams.get('placeId');
     const skipCache = request.nextUrl.searchParams.get('skipCache') === 'true';
 
     if (!businessName) {
@@ -495,8 +524,10 @@ export async function GET(request: NextRequest) {
     
     // ONLY include if we found a verified URL - never show unverified guesses
     if (facebookUrl) {
+      const cleanUrl = facebookUrl.endsWith('/') ? facebookUrl.slice(0, -1) : facebookUrl;
       links.facebook = { 
         profileUrl: facebookUrl, 
+        reviewUrl: `${cleanUrl}/reviews`,
         verified: true 
       };
     }
@@ -521,6 +552,18 @@ export async function GET(request: NextRequest) {
     if (twitterUrl) {
       links.twitter = { 
         profileUrl: twitterUrl, 
+        verified: true 
+      };
+    }
+
+    // YouTube - search via SerpAPI, then AI, only show if verified
+    let youtubeUrl = (await findUrlViaSerpAPI(businessName, 'youtube', address ?? undefined)) ?? undefined;
+    if (!youtubeUrl) {
+      youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
+    }
+    if (youtubeUrl) {
+      links.youtube = { 
+        profileUrl: youtubeUrl, 
         verified: true 
       };
     }
@@ -550,8 +593,14 @@ export async function GET(request: NextRequest) {
     }
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
-    const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
-    const googleMapsSearch = `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`;
+    const googleReviewUrl = placeId 
+      ? `https://search.google.com/local/writereview?placeid=${placeId}`
+      : `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
+      
+    const googleMapsSearch = placeId
+      ? `https://www.google.com/maps/place/?q=place_id:${placeId}`
+      : `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`;
+
     links.google = {
       reviewUrl: googleReviewUrl,
       mapsUrl: googleMapsSearch,

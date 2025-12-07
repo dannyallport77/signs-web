@@ -49,6 +49,7 @@ export async function GET(request: Request) {
       rating: place.rating,
       userRatingsTotal: place.user_ratings_total,
       types: place.types,
+      website: place.website,
       // Generate Google Maps review URL
       reviewUrl: `https://search.google.com/local/writereview?placeid=${place.place_id}`,
       mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
