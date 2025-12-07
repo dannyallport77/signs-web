@@ -8,6 +8,7 @@ interface SocialMediaLinks {
   instagram?: { profileUrl?: string; reviewUrl?: string; verified?: boolean };
   tiktok?: { profileUrl?: string; verified?: boolean };
   twitter?: { profileUrl?: string; verified?: boolean };
+  pinterest?: { profileUrl?: string; verified?: boolean };
   youtube?: { profileUrl?: string; verified?: boolean };
   linkedin?: { profileUrl?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -19,13 +20,14 @@ interface SocialMediaLinks {
 }
 
 const CACHE_KEY_DELIMITER = '::';
+const CACHE_VERSION = 'v2';
 
 function buildCacheKey(businessName: string, address?: string | null, website?: string | null): string {
   const normalize = (value?: string | null) => {
     if (!value) return 'none';
     return value.trim().toLowerCase();
   };
-  return [normalize(businessName), normalize(address), normalize(website)].join(CACHE_KEY_DELIMITER);
+  return [CACHE_VERSION, normalize(businessName), normalize(address), normalize(website)].join(CACHE_KEY_DELIMITER);
 }
 
 // Get caching setting from database
@@ -163,6 +165,15 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
       }
     }
 
+    // Find Pinterest
+    for (const link of allLinks) {
+      if (link.includes('pinterest.com/') || link.includes('pinterest.co.uk/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.pinterest = { profileUrl: url, verified: true };
+        break;
+      }
+    }
+
     // Find YouTube
     for (const link of allLinks) {
       if (link.includes('youtube.com/') || link.includes('youtu.be/')) {
@@ -214,6 +225,42 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
       if (link.includes('trustpilot.com/review/')) {
         const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
         links.trustpilot = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Checkatrade
+    for (const link of allLinks) {
+      if (link.includes('checkatrade.com/trades/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.checkatrade = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Rated People
+    for (const link of allLinks) {
+      if (link.includes('ratedpeople.com/tradesman/') || link.includes('ratedpeople.com/profile/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.ratedpeople = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find TrustATrader
+    for (const link of allLinks) {
+      if (link.includes('trustatrader.com/trader/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.trustatrader = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
+    // Find Yell
+    for (const link of allLinks) {
+      if (link.includes('yell.com/biz/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.yell = { profileUrl: url, reviewUrl: url, verified: true };
         break;
       }
     }
@@ -354,6 +401,17 @@ Response format: Just the URL or "NOT_FOUND"`;
   }
 }
 
+// Clean business name for better search results
+function cleanBusinessName(name: string): string {
+  // Remove common separators and everything after them
+  let clean = name.split(/[:|–-]/)[0].trim();
+  
+  // Remove common suffixes
+  clean = clean.replace(/\s+(Ltd|Limited|Inc|LLC|Plc)\.?$/i, '');
+  
+  return clean;
+}
+
 // Search Google via SerpAPI to find actual business page URLs
 async function findUrlViaSerpAPI(businessName: string, platform: string, address?: string): Promise<string | null> {
   const serpApiKey = process.env.SERPAPI_KEY;
@@ -363,69 +421,118 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
     return null;
   }
 
-  try {
-    const searchQuery = `${businessName} ${platform}${address ? ` ${address}` : ''}`;
-    const url = `https://serpapi.com/search?engine=google&q=${encodeURIComponent(searchQuery)}&api_key=${serpApiKey}`;
-    
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-    });
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    
-    // Extract URLs from organic results
-    const organicResults = data.organic_results || [];
-    const locationTokens = (address || '')
-      .split(/[,\s]+/)
-      .map((token: string) => token.trim().toLowerCase())
-      .filter((token: string) => token.length > 2);
-    
-    // Platform domain patterns to match
-    const platformDomains: Record<string, string[]> = {
-      facebook: ['facebook.com/', 'fb.com/'],
-      instagram: ['instagram.com/'],
-      twitter: ['twitter.com/', 'x.com/'],
-      youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
-      tiktok: ['tiktok.com/@'],
-      linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
-      trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
-      tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
-      yell: ['yell.com/biz/'],
-      checkatrade: ['checkatrade.com/trades/'],
-      ratedpeople: ['ratedpeople.com/tradesman/', 'ratedpeople.com/profile/'],
-      trustatrader: ['trustatrader.com/trader/'],
-    };
-    
-    const domains = platformDomains[platform.toLowerCase()];
-    if (!domains) return null;
-    
-    // Find first matching URL
-    for (const result of organicResults) {
-      const link = (result.link || '').toLowerCase();
-      const title = (result.title || '').toLowerCase();
-      const snippet = (result.snippet || '').toLowerCase();
+  const performSearch = async (query: string): Promise<string | null> => {
+    try {
+      const url = `https://serpapi.com/search?engine=google&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
+      
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+      });
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      
+      // Extract URLs from organic results
+      const organicResults = data.organic_results || [];
+      
+      // Create tokens from address
+      const locationTokens = (address || '')
+        .split(/[,\s]+/)
+        .map((token: string) => token.trim().toLowerCase())
+        .filter((token: string) => token.length > 2);
 
-      const matchesLocation = locationTokens.length === 0 || locationTokens.some(token =>
-        link.includes(token) || title.includes(token) || snippet.includes(token)
-      );
+      // Create tokens from business name
+      const nameTokens = cleanBusinessName(businessName)
+        .toLowerCase()
+        .split(/[,\s]+/)
+        .filter(token => token.length > 2);
+      
+      // Platform domain patterns to match
+      const platformDomains: Record<string, string[]> = {
+        facebook: ['facebook.com/', 'fb.com/'],
+        instagram: ['instagram.com/'],
+        twitter: ['twitter.com/', 'x.com/'],
+        pinterest: ['pinterest.com/', 'pinterest.co.uk/'],
+        youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
+        tiktok: ['tiktok.com/@'],
+        linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
+        trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
+        tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
+        yell: ['yell.com/biz/'],
+        checkatrade: ['checkatrade.com/trades/'],
+        ratedpeople: ['ratedpeople.com/tradesman/', 'ratedpeople.com/profile/'],
+        trustatrader: ['trustatrader.com/trader/'],
+      };
+      
+      const domains = platformDomains[platform.toLowerCase()];
+      if (!domains) return null;
+      
+      // Find first matching URL
+      for (const result of organicResults) {
+        const link = (result.link || '').toLowerCase();
+        const title = (result.title || '').toLowerCase();
+        const snippet = (result.snippet || '').toLowerCase();
 
-      if (!matchesLocation) continue;
+        // Check if any address token matches
+        const matchesLocation = locationTokens.length === 0 || locationTokens.some(token =>
+          link.includes(token) || title.includes(token) || snippet.includes(token)
+        );
 
-      for (const domain of domains) {
-        if (link.includes(domain) && !link.includes('/search')) {
-          // Clean URL (remove tracking params)
-          return (result.link || '').split('?')[0].split('#')[0];
+        // Check if business name matches (more lenient)
+        const matchesName = nameTokens.some(token => 
+          title.includes(token) || link.includes(token) || snippet.includes(token)
+        );
+
+        // Accept if either location matches OR business name matches strongly
+        if (!matchesLocation && !matchesName) {
+          continue;
+        }
+
+        for (const domain of domains) {
+          if (link.includes(domain) && !link.includes('/search')) {
+            // Clean URL (remove tracking params)
+            const cleanUrl = (result.link || '').split('?')[0].split('#')[0];
+            return cleanUrl;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error finding ${platform} via SerpAPI:`, error);
+      return null;
+    }
+  };
+
+  // Strategy 1: Full search with address
+  let result = await performSearch(`${businessName} ${platform} ${address || ''}`);
+  if (result) return result;
+
+  // Strategy 2: Clean business name + city (if available in address)
+  const cleanName = cleanBusinessName(businessName);
+  if (cleanName !== businessName) {
+    // Extract city from address (simple heuristic: last part of address usually)
+    // Or just use the clean name + platform
+    let fallbackQuery = `${cleanName} ${platform}`;
+    
+    // Try to add city if possible
+    if (address) {
+      const parts = address.split(',');
+      if (parts.length > 1) {
+        // Try to find the city (usually 2nd to last or 3rd to last)
+        // For "Bolton BL2 2SE", "Bolton" is good.
+        const cityCandidate = parts.find(p => !p.match(/\d/) && p.trim().length > 3);
+        if (cityCandidate) {
+          fallbackQuery += ` ${cityCandidate.trim()}`;
         }
       }
     }
-    
-    return null;
-  } catch (error) {
-    console.error(`Error finding ${platform} via SerpAPI:`, error);
-    return null;
+
+    result = await performSearch(fallbackQuery);
   }
+
+  return result;
 }
 
 // Determine if a business is likely a tradesperson/contractor
@@ -484,23 +591,6 @@ export async function GET(request: NextRequest) {
       try {
         const scrapedLinks = await scrapeWebsiteForSocialMedia(website, 3000);
         links = scrapedLinks;
-        
-        // If we found actual links on the website, return them immediately
-        if (Object.keys(scrapedLinks).length > 0) {
-          // Add Google links as well
-          const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
-          links.google = {
-            reviewUrl: `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`,
-            mapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(businessName + (address ? ` ${address}` : ''))}`,
-          };
-          
-          // Cache before returning
-          if (cachingEnabled) {
-            await cacheLinks(businessName, address ?? undefined, website ?? undefined, links);
-          }
-          
-          return NextResponse.json({ success: true, data: links, cached: false });
-        }
       } catch (error) {
         console.error('Error scraping website:', error);
       }
@@ -515,81 +605,108 @@ export async function GET(request: NextRequest) {
 
     // Social media platforms - try to find verified accounts via SerpAPI
     // Try Google search first, then try AI as fallback, never guess without verification
-    let facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined;
     
-    // If SerpAPI didn't find it, try AI search
-    if (!facebookUrl) {
-      facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    
-    // ONLY include if we found a verified URL - never show unverified guesses
-    if (facebookUrl) {
-      const cleanUrl = facebookUrl.endsWith('/') ? facebookUrl.slice(0, -1) : facebookUrl;
-      links.facebook = { 
-        profileUrl: facebookUrl, 
-        reviewUrl: `${cleanUrl}/reviews`,
-        verified: true 
-      };
+    if (!links.facebook) {
+      let facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined;
+      
+      // If SerpAPI didn't find it, try AI search
+      if (!facebookUrl) {
+        facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      // ONLY include if we found a verified URL - never show unverified guesses
+      if (facebookUrl) {
+        const cleanUrl = facebookUrl.endsWith('/') ? facebookUrl.slice(0, -1) : facebookUrl;
+        links.facebook = { 
+          profileUrl: facebookUrl, 
+          reviewUrl: `${cleanUrl}/reviews`,
+          verified: true 
+        };
+      }
     }
 
     // Instagram - search via SerpAPI, then AI, only show if verified
-    let instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined;
-    if (!instagramUrl) {
-      instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    if (instagramUrl) {
-      links.instagram = { 
-        profileUrl: instagramUrl, 
-        verified: true 
-      };
+    if (!links.instagram) {
+      let instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined;
+      if (!instagramUrl) {
+        instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (instagramUrl) {
+        links.instagram = { 
+          profileUrl: instagramUrl, 
+          verified: true 
+        };
+      }
     }
 
     // Twitter/X - search via SerpAPI, then AI, only show if verified
-    let twitterUrl = (await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined)) ?? undefined;
-    if (!twitterUrl) {
-      twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
+    if (!links.twitter) {
+      let twitterUrl = (await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined)) ?? undefined;
+      if (!twitterUrl) {
+        twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (twitterUrl) {
+        links.twitter = { 
+          profileUrl: twitterUrl, 
+          verified: true 
+        };
+      }
     }
-    if (twitterUrl) {
-      links.twitter = { 
-        profileUrl: twitterUrl, 
-        verified: true 
-      };
+
+    // Pinterest - search via SerpAPI, then AI, only show if verified
+    if (!links.pinterest) {
+      let pinterestUrl = (await findUrlViaSerpAPI(businessName, 'pinterest', address ?? undefined)) ?? undefined;
+      if (!pinterestUrl) {
+        pinterestUrl = (await findUrlViaAI(businessName, 'pinterest', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (pinterestUrl) {
+        links.pinterest = { 
+          profileUrl: pinterestUrl, 
+          verified: true 
+        };
+      }
     }
 
     // YouTube - search via SerpAPI, then AI, only show if verified
-    let youtubeUrl = (await findUrlViaSerpAPI(businessName, 'youtube', address ?? undefined)) ?? undefined;
-    if (!youtubeUrl) {
-      youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    if (youtubeUrl) {
-      links.youtube = { 
-        profileUrl: youtubeUrl, 
-        verified: true 
-      };
+    if (!links.youtube) {
+      let youtubeUrl = (await findUrlViaSerpAPI(businessName, 'youtube', address ?? undefined)) ?? undefined;
+      if (!youtubeUrl) {
+        youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (youtubeUrl) {
+        links.youtube = { 
+          profileUrl: youtubeUrl, 
+          verified: true 
+        };
+      }
     }
 
     // TikTok - search via SerpAPI, then AI, only show if verified
-    let tiktokUrl = (await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined)) ?? undefined;
-    if (!tiktokUrl) {
-      tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    if (tiktokUrl) {
-      links.tiktok = { 
-        profileUrl: tiktokUrl, 
-        verified: true 
-      };
+    if (!links.tiktok) {
+      let tiktokUrl = (await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined)) ?? undefined;
+      if (!tiktokUrl) {
+        tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (tiktokUrl) {
+        links.tiktok = { 
+          profileUrl: tiktokUrl, 
+          verified: true 
+        };
+      }
     }
 
     // LinkedIn - search via SerpAPI, then AI, only show if verified
-    let linkedinUrl = (await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined)) ?? undefined;
-    if (!linkedinUrl) {
-      linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    if (linkedinUrl) {
-      links.linkedin = { 
-        profileUrl: linkedinUrl, 
-        verified: true 
-      };
+    if (!links.linkedin) {
+      let linkedinUrl = (await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined)) ?? undefined;
+      if (!linkedinUrl) {
+        linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      if (linkedinUrl) {
+        links.linkedin = { 
+          profileUrl: linkedinUrl, 
+          verified: true 
+        };
+      }
     }
 
     const googleQuery = `${businessName} reviews${address ? ` ${address}` : ''}`.trim();
@@ -656,63 +773,71 @@ export async function GET(request: NextRequest) {
     // ONLY use verified URLs, never guess
     if (isTrade) {
       // Yell - SerpAPI or AI search only
-      let yellUrl = (await findUrlViaSerpAPI(businessName, 'yell', address ?? undefined)) ?? undefined;
-      
-      if (!yellUrl) {
-        yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
-      }
-      
-      if (yellUrl) {
-        links.yell = {
-          profileUrl: yellUrl,
-          reviewUrl: yellUrl,
-          verified: true,
-        };
+      if (!links.yell) {
+        let yellUrl = (await findUrlViaSerpAPI(businessName, 'yell', address ?? undefined)) ?? undefined;
+        
+        if (!yellUrl) {
+          yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
+        }
+        
+        if (yellUrl) {
+          links.yell = {
+            profileUrl: yellUrl,
+            reviewUrl: yellUrl,
+            verified: true,
+          };
+        }
       }
 
       // Checkatrade - SerpAPI or AI search only
-      let checkatradeUrl = (await findUrlViaSerpAPI(businessName, 'checkatrade', address ?? undefined)) ?? undefined;
-      
-      if (!checkatradeUrl) {
-        checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
-      }
-      
-      if (checkatradeUrl) {
-        links.checkatrade = {
-          profileUrl: checkatradeUrl,
-          reviewUrl: checkatradeUrl,
-          verified: true,
-        };
+      if (!links.checkatrade) {
+        let checkatradeUrl = (await findUrlViaSerpAPI(businessName, 'checkatrade', address ?? undefined)) ?? undefined;
+        
+        if (!checkatradeUrl) {
+          checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
+        }
+        
+        if (checkatradeUrl) {
+          links.checkatrade = {
+            profileUrl: checkatradeUrl,
+            reviewUrl: checkatradeUrl,
+            verified: true,
+          };
+        }
       }
 
       // Rated People - SerpAPI or AI search only
-      let ratedpeopleUrl = (await findUrlViaSerpAPI(businessName, 'ratedpeople', address ?? undefined)) ?? undefined;
-      
-      if (!ratedpeopleUrl) {
-        ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
-      }
-      
-      if (ratedpeopleUrl) {
-        links.ratedpeople = {
-          profileUrl: ratedpeopleUrl,
-          reviewUrl: ratedpeopleUrl,
-          verified: true,
-        };
+      if (!links.ratedpeople) {
+        let ratedpeopleUrl = (await findUrlViaSerpAPI(businessName, 'ratedpeople', address ?? undefined)) ?? undefined;
+        
+        if (!ratedpeopleUrl) {
+          ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
+        }
+        
+        if (ratedpeopleUrl) {
+          links.ratedpeople = {
+            profileUrl: ratedpeopleUrl,
+            reviewUrl: ratedpeopleUrl,
+            verified: true,
+          };
+        }
       }
 
       // TrustATrader - SerpAPI or AI search only
-      let trustatraderUrl = (await findUrlViaSerpAPI(businessName, 'trustatrader', address ?? undefined)) ?? undefined;
-      
-      if (!trustatraderUrl) {
-        trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
-      }
-      
-      if (trustatraderUrl) {
-        links.trustatrader = {
-          profileUrl: trustatraderUrl,
-          reviewUrl: trustatraderUrl,
-          verified: true,
-        };
+      if (!links.trustatrader) {
+        let trustatraderUrl = (await findUrlViaSerpAPI(businessName, 'trustatrader', address ?? undefined)) ?? undefined;
+        
+        if (!trustatraderUrl) {
+          trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
+        }
+        
+        if (trustatraderUrl) {
+          links.trustatrader = {
+            profileUrl: trustatraderUrl,
+            reviewUrl: trustatraderUrl,
+            verified: true,
+          };
+        }
       }
     }
 

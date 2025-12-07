@@ -346,3 +346,34 @@ model SystemSettings {
   updatedAt             DateTime @updatedAt
 }
 
+// Smart Links (Redirectable Tags)
+model SmartLink {
+  id          String   @id @default(cuid())
+  slug        String   @unique // Short code for the URL
+  targetUrl   String   // Where it goes
+  name        String?  // e.g. "Google Review - Front Desk"
+  businessName String
+  placeId     String
+  active      Boolean  @default(true)
+  suspended   Boolean  @default(false) // "suspend it temporarily"
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  scans       SmartLinkScan[]
+}
+
+model SmartLinkScan {
+  id          String    @id @default(cuid())
+  smartLinkId String
+  timestamp   DateTime  @default(now())
+  userAgent   String?
+  ipAddress   String?
+  referrer    String?
+  
+  smartLink   SmartLink @relation(fields: [smartLinkId], references: [id], onDelete: Cascade)
+  
+  @@index([smartLinkId])
+  @@index([timestamp])
+}
+
