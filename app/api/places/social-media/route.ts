@@ -375,24 +375,37 @@ async function findUrlViaAI(businessName: string, platform: string, address?: st
   const geminiKey = process.env.GEMINI_API_KEY;
   
   if (!openaiKey && !geminiKey) {
+    console.warn('No AI keys available (OPENAI_API_KEY or GEMINI_API_KEY)');
     return null;
   }
 
   try {
-    const prompt = `Find the exact ${platform} review page URL for this business:
-Business Name: ${businessName}
-${address ? `Address: ${address}` : ''}
+    // Improved prompt with more specific instructions
+    const prompt = `You are a business research assistant. Find the exact ${platform} URL for this business.
+
+Business: ${businessName}
+${address ? `Location: ${address}` : ''}
 ${website ? `Website: ${website}` : ''}
 
-Instructions:
-- Search for their official ${platform} page
-- Return ONLY the direct ${platform} review/profile URL
-- For Trustpilot, it should be in format: https://www.trustpilot.com/review/domain-name
-- If you cannot find a verified page, return "NOT_FOUND"
-- Do not guess or make up URLs
-- Verify the business actually has a ${platform} presence
+Search strategy:
+1. For ${platform}, find the official business review/profile page
+2. Return the exact URL only
+3. Common patterns:
+   - Facebook: https://www.facebook.com/[business-name]
+   - Instagram: https://www.instagram.com/[business-name]
+   - TikTok: https://www.tiktok.com/@[business-name]
+   - Twitter/X: https://twitter.com/[business-name]
+   - YouTube: https://www.youtube.com/c/[business-name]
+   - LinkedIn: https://www.linkedin.com/company/[business-name]
+   - Trustpilot: https://www.trustpilot.com/review/[domain]
+   - TripAdvisor: https://www.tripadvisor.com/[business-slug]
+   - Yelp: https://www.yelp.com/biz/[business-slug]
 
-Response format: Just the URL or "NOT_FOUND"`;
+Return ONLY:
+- The direct URL if found (must start with http)
+- Or "NOT_FOUND" if cannot verify the business has this platform
+
+Do NOT guess or make up URLs.`;
 
     let url: string | null = null;
 
@@ -419,7 +432,10 @@ Response format: Just the URL or "NOT_FOUND"`;
           const content = data.choices?.[0]?.message?.content?.trim();
           if (content && content !== 'NOT_FOUND' && content.startsWith('http')) {
             url = content;
+            console.log(`✅ OpenAI found ${platform} for ${businessName}: ${url}`);
           }
+        } else {
+          console.warn(`OpenAI request failed: ${response.status}`);
         }
       } catch (error) {
         console.error('OpenAI search failed:', error);
@@ -429,6 +445,7 @@ Response format: Just the URL or "NOT_FOUND"`;
     // Try Gemini if OpenAI failed or not available
     if (!url && geminiKey) {
       try {
+        console.log(`🤖 Trying Gemini for ${platform} (${businessName})...`);
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -446,10 +463,16 @@ Response format: Just the URL or "NOT_FOUND"`;
         if (response.ok) {
           const data = await response.json();
           const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          console.log(`Gemini response for ${platform}: "${content}"`);
           if (content && content !== 'NOT_FOUND' && content.startsWith('http')) {
             url = content;
-            console.log(`Gemini found ${platform} URL for ${businessName}: ${url}`);
+            console.log(`✅ Gemini found ${platform} for ${businessName}: ${url}`);
+          } else if (content) {
+            console.log(`⚠️ Gemini returned non-URL for ${platform}: ${content.substring(0, 100)}`);
           }
+        } else {
+          const errorText = await response.text();
+          console.warn(`Gemini request failed: ${response.status} - ${errorText.substring(0, 200)}`);
         }
       } catch (error) {
         console.error('Gemini search failed:', error);
@@ -458,7 +481,10 @@ Response format: Just the URL or "NOT_FOUND"`;
 
     // Verify the URL actually works before returning it
     if (url && await verifyUrl(url, 5000)) {
+      console.log(`✅ Verified ${platform} URL works: ${url}`);
       return url;
+    } else if (url) {
+      console.warn(`⚠️ ${platform} URL found but failed verification: ${url}`);
     }
 
     return null;
@@ -497,7 +523,7 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
       });
       
       if (!response.ok) {
-        console.warn(`SerpAPI returned ${response.status} for ${platform}`);
+        console.warn(`SerpAPI returned ${response.status} for ${platform} - falling back to Gemini`);
         return null;
       }
       
