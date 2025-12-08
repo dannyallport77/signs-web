@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       websiteUrl,
       appDownloadUrl,
       appStoreType,
+      appDownloadUrlApple,
+      appDownloadUrlGoogle,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -58,6 +60,8 @@ export async function POST(request: NextRequest) {
       websiteUrl?: string;
       appDownloadUrl?: string;
       appStoreType?: string;
+      appDownloadUrlApple?: string;
+      appDownloadUrlGoogle?: string;
     };
 
     if (!businessName) {
@@ -102,6 +106,8 @@ export async function POST(request: NextRequest) {
         websiteUrl,
         appDownloadUrl,
         appStoreType,
+        appDownloadUrlApple,
+        appDownloadUrlGoogle,
         platforms: {
           create: preparedPlatforms,
         },

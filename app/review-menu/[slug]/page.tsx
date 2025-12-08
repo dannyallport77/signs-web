@@ -309,6 +309,60 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
           </div>
         </a>
       )}
+
+      {menu.appDownloadUrlApple && (
+        <a
+          href={menu.appDownloadUrlApple}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-600 to-slate-800 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+        >
+          <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                🍎
+              </div>
+              <div>
+                <p className="text-xl font-semibold">
+                  Download on App Store
+                </p>
+                <p className="text-sm text-white/80">Apple App Store</p>
+              </div>
+            </div>
+            <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+              Install
+              <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+            </div>
+          </div>
+        </a>
+      )}
+
+      {menu.appDownloadUrlGoogle && (
+        <a
+          href={menu.appDownloadUrlGoogle}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 p-[1px] shadow-lg transition-transform hover:-translate-y-1"
+        >
+          <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+                🤖
+              </div>
+              <div>
+                <p className="text-xl font-semibold">
+                  Get it on Google Play
+                </p>
+                <p className="text-sm text-white/80">Google Play Store</p>
+              </div>
+            </div>
+            <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
+              Install
+              <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+            </div>
+          </div>
+        </a>
+      )}
     </div>
     );
   };

@@ -120,8 +120,10 @@ model ReviewPlatformMenu {
   wifiPassword    String?
   wifiSecurity    String?
   websiteUrl      String?
-  appDownloadUrl  String?
-  appStoreType    String?
+  appDownloadUrl  String?   // Legacy field - kept for backward compatibility
+  appStoreType    String?   // Legacy field - kept for backward compatibility
+  appDownloadUrlApple  String?
+  appDownloadUrlGoogle String?
   // Optional fruit machine promotion
   promotionId     String?
   createdAt       DateTime          @default(now())
