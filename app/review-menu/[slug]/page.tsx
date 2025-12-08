@@ -310,7 +310,8 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
         </a>
       )}
     </div>
-  );
+    );
+  };
 
   const renderOrbitLayout = (google: typeof googlePlatform) => {
     if (!google) return null;
