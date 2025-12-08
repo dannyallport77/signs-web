@@ -505,38 +505,63 @@ function cleanBusinessName(name: string): string {
   return clean;
 }
 
-// Search Google via SerpAPI to find actual business page URLs
-async function findUrlViaSerpAPI(businessName: string, platform: string, address?: string): Promise<string | null> {
-  const serpApiKey = process.env.SERPAPI_KEY;
+// Platform domain patterns for matching URLs
+const platformDomains: Record<string, string[]> = {
+  facebook: ['facebook.com/', 'fb.com/'],
+  instagram: ['instagram.com/'],
+  twitter: ['twitter.com/', 'x.com/'],
+  youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
+  tiktok: ['tiktok.com/@'],
+  linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
+  trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
+  tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
+  yelp: ['yelp.com/biz/', 'yelp.co.uk/biz/'],
+  yell: ['yell.com/biz/'],
+  checkatrade: ['checkatrade.com/trades/'],
+  ratedpeople: ['ratedpeople.com/tradesman/', 'ratedpeople.com/profile/'],
+  trustatrader: ['trustatrader.com/trader/'],
+};
+
+// Search Google via Custom Search API to find actual business page URLs
+async function findUrlViaGoogleSearch(businessName: string, platform: string, address?: string): Promise<string | null> {
+  // Use GOOGLE_PLACES_API_KEY for Custom Search (same key)
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID; // Custom Search Engine ID
   
-  if (!serpApiKey) {
-    console.warn('SERPAPI_KEY not configured, skipping Google search');
+  if (!apiKey) {
+    console.warn('GOOGLE_PLACES_API_KEY not configured, skipping Google Custom Search');
+    return null;
+  }
+  
+  if (!searchEngineId) {
+    console.warn('GOOGLE_SEARCH_ENGINE_ID not configured, skipping Google Custom Search');
     return null;
   }
 
   const performSearch = async (query: string): Promise<string | null> => {
     try {
-      const url = `https://serpapi.com/search?engine=google&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
+      const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&num=10`;
       
       const response = await fetch(url, {
         signal: AbortSignal.timeout(8000),
       });
       
       if (!response.ok) {
-        console.warn(`SerpAPI returned ${response.status} for ${platform} - falling back to Gemini`);
+        const errorText = await response.text();
+        console.warn(`Google Custom Search returned ${response.status} for ${platform}: ${errorText}`);
         return null;
       }
       
       const data = await response.json();
       
-      // Check for rate limiting or errors
+      // Check for errors
       if (data.error) {
-        console.warn(`SerpAPI error for ${platform}: ${data.error}`);
+        console.warn(`Google Custom Search error for ${platform}: ${data.error.message}`);
         return null;
       }
       
-      // Extract URLs from organic results
-      const organicResults = data.organic_results || [];
+      // Extract URLs from search results
+      const items = data.items || [];
       
       // Create tokens from address
       const locationTokens = (address || '')
@@ -550,28 +575,11 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
         .split(/[,\s]+/)
         .filter(token => token.length > 2);
       
-      // Platform domain patterns to match
-      const platformDomains: Record<string, string[]> = {
-        facebook: ['facebook.com/', 'fb.com/'],
-        instagram: ['instagram.com/'],
-        twitter: ['twitter.com/', 'x.com/'],
-        youtube: ['youtube.com/channel/', 'youtube.com/c/', 'youtube.com/user/', 'youtube.com/@'],
-        tiktok: ['tiktok.com/@'],
-        linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
-        trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
-        tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
-        yelp: ['yelp.com/biz/', 'yelp.co.uk/biz/'],
-        yell: ['yell.com/biz/'],
-        checkatrade: ['checkatrade.com/trades/'],
-        ratedpeople: ['ratedpeople.com/tradesman/', 'ratedpeople.com/profile/'],
-        trustatrader: ['trustatrader.com/trader/'],
-      };
-      
       const domains = platformDomains[platform.toLowerCase()];
       if (!domains) return null;
       
       // Find first matching URL
-      for (const result of organicResults) {
+      for (const result of items) {
         const link = (result.link || '').toLowerCase();
         const title = (result.title || '').toLowerCase();
         const snippet = (result.snippet || '').toLowerCase();
@@ -595,6 +603,7 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
           if (link.includes(domain) && !link.includes('/search')) {
             // Clean URL (remove tracking params)
             const cleanUrl = (result.link || '').split('?')[0].split('#')[0];
+            console.log(`Google Custom Search found ${platform}: ${cleanUrl}`);
             return cleanUrl;
           }
         }
@@ -602,7 +611,7 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
       
       return null;
     } catch (error) {
-      console.error(`Error finding ${platform} via SerpAPI:`, error);
+      console.error(`Error finding ${platform} via Google Custom Search:`, error);
       return null;
     }
   };
@@ -614,16 +623,12 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
   // Strategy 2: Clean business name + city (if available in address)
   const cleanName = cleanBusinessName(businessName);
   if (cleanName !== businessName) {
-    // Extract city from address (simple heuristic: last part of address usually)
-    // Or just use the clean name + platform
     let fallbackQuery = `${cleanName} ${platform}`;
     
     // Try to add city if possible
     if (address) {
       const parts = address.split(',');
       if (parts.length > 1) {
-        // Try to find the city (usually 2nd to last or 3rd to last)
-        // For "Bolton BL2 2SE", "Bolton" is good.
         const cityCandidate = parts.find(p => !p.match(/\d/) && p.trim().length > 3);
         if (cityCandidate) {
           fallbackQuery += ` ${cityCandidate.trim()}`;
@@ -635,34 +640,6 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
   }
 
   return result;
-}
-
-// Determine if a business is likely a tradesperson/contractor
-function isTradeBusiness(businessName: string): boolean {
-  const tradeKeywords = [
-    'plumber', 'plumbing', 'electrician', 'electrical', 'builder', 'building', 'carpenter', 'carpentry',
-    'painter', 'painting', 'decorator', 'roofer', 'roofing', 'heating', 'boiler', 'gas', 'hvac',
-    'locksmith', 'glazier', 'plasterer', 'tiler', 'handyman', 'joiner', 'bricklayer', 'landscaper',
-    'gardener', 'fencing', 'drainage', 'bathroom', 'kitchen', 'installer', 'contractor', 'construction',
-    'maintenance', 'repair', 'remodeling', 'renovation', 'services'
-  ];
-  
-  const nameLower = businessName.toLowerCase();
-  return tradeKeywords.some(keyword => nameLower.includes(keyword));
-}
-
-// Determine if a business is hospitality/tourism related
-function isHospitalityBusiness(businessName: string): boolean {
-  const hospitalityKeywords = [
-    'hotel', 'motel', 'inn', 'resort', 'lodge', 'accommodation', 'b&b', 'bed and breakfast',
-    'restaurant', 'cafe', 'coffee', 'bar', 'pub', 'bistro', 'grill', 'diner', 'eatery',
-    'pizza', 'burger', 'sushi', 'thai', 'chinese', 'indian', 'italian', 'mexican',
-    'takeaway', 'fast food', 'bakery', 'patisserie', 'tea room', 'brasserie',
-    'attraction', 'museum', 'gallery', 'tour', 'spa', 'salon'
-  ];
-  
-  const nameLower = businessName.toLowerCase();
-  return hospitalityKeywords.some(keyword => nameLower.includes(keyword));
 }
 
 export async function GET(request: NextRequest) {
@@ -700,19 +677,15 @@ export async function GET(request: NextRequest) {
     
     const businessNameClean = businessName.replace(/\s+/g, '').toLowerCase();
     const businessNameHyphen = businessName.replace(/\s+/g, '-').toLowerCase();
-    
-    // Determine business type
-    const isTrade = isTradeBusiness(businessName);
-    const isHospitality = isHospitalityBusiness(businessName);
 
-    // Social media platforms - try to find verified accounts via SerpAPI
+    // Social media platforms - try to find verified accounts via Google Custom Search
     // Try Google search first, then try AI as fallback, never guess without verification
     // Second-level verification: check page content matches business name
     
     if (!links.facebook) {
-      let facebookUrl = (await findUrlViaSerpAPI(businessName, 'facebook', address ?? undefined)) ?? undefined;
+      let facebookUrl = (await findUrlViaGoogleSearch(businessName, 'facebook', address ?? undefined)) ?? undefined;
       
-      // If SerpAPI didn't find it, try AI search
+      // If Google Search didn't find it, try AI search
       if (!facebookUrl) {
         facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -728,9 +701,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Instagram - search via SerpAPI, then AI, only show if verified
+    // Instagram - search via Google Custom Search, then AI, only show if verified
     if (!links.instagram) {
-      let instagramUrl = (await findUrlViaSerpAPI(businessName, 'instagram', address ?? undefined)) ?? undefined;
+      let instagramUrl = (await findUrlViaGoogleSearch(businessName, 'instagram', address ?? undefined)) ?? undefined;
       if (!instagramUrl) {
         instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -743,9 +716,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Twitter/X - search via SerpAPI, then AI, only show if verified
+    // Twitter/X - search via Google Custom Search, then AI, only show if verified
     if (!links.twitter) {
-      let twitterUrl = (await findUrlViaSerpAPI(businessName, 'twitter', address ?? undefined)) ?? undefined;
+      let twitterUrl = (await findUrlViaGoogleSearch(businessName, 'twitter', address ?? undefined)) ?? undefined;
       if (!twitterUrl) {
         twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -758,9 +731,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // YouTube - search via SerpAPI, then AI, only show if verified
+    // YouTube - search via Google Custom Search, then AI, only show if verified
     if (!links.youtube) {
-      let youtubeUrl = (await findUrlViaSerpAPI(businessName, 'youtube', address ?? undefined)) ?? undefined;
+      let youtubeUrl = (await findUrlViaGoogleSearch(businessName, 'youtube', address ?? undefined)) ?? undefined;
       if (!youtubeUrl) {
         youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -773,9 +746,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // TikTok - search via SerpAPI, then AI, only show if verified
+    // TikTok - search via Google Custom Search, then AI, only show if verified
     if (!links.tiktok) {
-      let tiktokUrl = (await findUrlViaSerpAPI(businessName, 'tiktok', address ?? undefined)) ?? undefined;
+      let tiktokUrl = (await findUrlViaGoogleSearch(businessName, 'tiktok', address ?? undefined)) ?? undefined;
       if (!tiktokUrl) {
         tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -788,9 +761,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // LinkedIn - search via SerpAPI, then AI, only show if verified
+    // LinkedIn - search via Google Custom Search, then AI, only show if verified
     if (!links.linkedin) {
-      let linkedinUrl = (await findUrlViaSerpAPI(businessName, 'linkedin', address ?? undefined)) ?? undefined;
+      let linkedinUrl = (await findUrlViaGoogleSearch(businessName, 'linkedin', address ?? undefined)) ?? undefined;
       if (!linkedinUrl) {
         linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
       }
@@ -822,12 +795,12 @@ export async function GET(request: NextRequest) {
     // Returns verified URLs when found, search URLs as fallback
     
     // Trustpilot - ONLY use verified URLs, never guess
-    // Priority: 1) Scraped from website, 2) SerpAPI, 3) AI search
+    // Priority: 1) Scraped from website, 2) Google Custom Search, 3) AI search
     let trustpilotUrl = links.trustpilot?.reviewUrl || links.trustpilot?.profileUrl;
     
     if (!trustpilotUrl) {
-      // Try Google search via SerpAPI
-      trustpilotUrl = (await findUrlViaSerpAPI(businessName, 'trustpilot', address ?? undefined)) ?? undefined;
+      // Try Google search via Google Custom Search
+      trustpilotUrl = (await findUrlViaGoogleSearch(businessName, 'trustpilot', address ?? undefined)) ?? undefined;
     }
     
     if (!trustpilotUrl) {
@@ -846,10 +819,10 @@ export async function GET(request: NextRequest) {
       delete links.trustpilot; // Remove if verification failed
     }
 
-    // TripAdvisor - hospitality only (restaurants, hotels, attractions)
+    // TripAdvisor - search for all businesses
     // ONLY use verified URLs, never guess
-    if (isHospitality) {
-      let tripadvisorUrl = (await findUrlViaSerpAPI(businessName, 'tripadvisor', address ?? undefined)) ?? undefined;
+    if (!links.tripadvisor) {
+      let tripadvisorUrl = (await findUrlViaGoogleSearch(businessName, 'tripadvisor', address ?? undefined)) ?? undefined;
       
       if (!tripadvisorUrl) {
         tripadvisorUrl = (await findUrlViaAI(businessName, 'tripadvisor', address ?? undefined, website ?? undefined)) ?? undefined;
@@ -870,10 +843,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Yelp - hospitality only (restaurants, cafes, bars)
+    // Yelp - search for all businesses
     // ONLY use verified URLs, never guess
-    if (isHospitality && !links.yelp) {
-      let yelpUrl = (await findUrlViaSerpAPI(businessName, 'yelp', address ?? undefined)) ?? undefined;
+    if (!links.yelp) {
+      let yelpUrl = (await findUrlViaGoogleSearch(businessName, 'yelp', address ?? undefined)) ?? undefined;
       
       if (!yelpUrl) {
         yelpUrl = (await findUrlViaAI(businessName, 'yelp', address ?? undefined, website ?? undefined)) ?? undefined;
@@ -894,94 +867,90 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Trade-specific platforms (only for trade businesses)
-    // ONLY use verified URLs, never guess
-    if (isTrade) {
-      // Yell - SerpAPI or AI search only
-      if (!links.yell) {
-        let yellUrl = (await findUrlViaSerpAPI(businessName, 'yell', address ?? undefined)) ?? undefined;
-        
-        if (!yellUrl) {
-          yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
-        }
-        
-        if (yellUrl) {
-          const isVerified = await verifyUrlMatchesBusiness(yellUrl, businessName);
-          if (isVerified) {
-            links.yell = {
-              profileUrl: yellUrl,
-              reviewUrl: yellUrl,
-              verified: true,
-            };
-          } else {
-            console.log(`Yell URL ${yellUrl} failed business name verification`);
-          }
+    // Yell - search for all businesses
+    if (!links.yell) {
+      let yellUrl = (await findUrlViaGoogleSearch(businessName, 'yell', address ?? undefined)) ?? undefined;
+      
+      if (!yellUrl) {
+        yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      if (yellUrl) {
+        const isVerified = await verifyUrlMatchesBusiness(yellUrl, businessName);
+        if (isVerified) {
+          links.yell = {
+            profileUrl: yellUrl,
+            reviewUrl: yellUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`Yell URL ${yellUrl} failed business name verification`);
         }
       }
+    }
 
-      // Checkatrade - SerpAPI or AI search only
-      if (!links.checkatrade) {
-        let checkatradeUrl = (await findUrlViaSerpAPI(businessName, 'checkatrade', address ?? undefined)) ?? undefined;
-        
-        if (!checkatradeUrl) {
-          checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
-        }
-        
-        if (checkatradeUrl) {
-          const isVerified = await verifyUrlMatchesBusiness(checkatradeUrl, businessName);
-          if (isVerified) {
-            links.checkatrade = {
-              profileUrl: checkatradeUrl,
-              reviewUrl: checkatradeUrl,
-              verified: true,
-            };
-          } else {
-            console.log(`Checkatrade URL ${checkatradeUrl} failed business name verification`);
-          }
+    // Checkatrade - search for all businesses
+    if (!links.checkatrade) {
+      let checkatradeUrl = (await findUrlViaGoogleSearch(businessName, 'checkatrade', address ?? undefined)) ?? undefined;
+      
+      if (!checkatradeUrl) {
+        checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      if (checkatradeUrl) {
+        const isVerified = await verifyUrlMatchesBusiness(checkatradeUrl, businessName);
+        if (isVerified) {
+          links.checkatrade = {
+            profileUrl: checkatradeUrl,
+            reviewUrl: checkatradeUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`Checkatrade URL ${checkatradeUrl} failed business name verification`);
         }
       }
+    }
 
-      // Rated People - SerpAPI or AI search only
-      if (!links.ratedpeople) {
-        let ratedpeopleUrl = (await findUrlViaSerpAPI(businessName, 'ratedpeople', address ?? undefined)) ?? undefined;
-        
-        if (!ratedpeopleUrl) {
-          ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
-        }
-        
-        if (ratedpeopleUrl) {
-          const isVerified = await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName);
-          if (isVerified) {
-            links.ratedpeople = {
-              profileUrl: ratedpeopleUrl,
-              reviewUrl: ratedpeopleUrl,
-              verified: true,
-            };
-          } else {
-            console.log(`Rated People URL ${ratedpeopleUrl} failed business name verification`);
-          }
+    // Rated People - search for all businesses
+    if (!links.ratedpeople) {
+      let ratedpeopleUrl = (await findUrlViaGoogleSearch(businessName, 'ratedpeople', address ?? undefined)) ?? undefined;
+      
+      if (!ratedpeopleUrl) {
+        ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      if (ratedpeopleUrl) {
+        const isVerified = await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName);
+        if (isVerified) {
+          links.ratedpeople = {
+            profileUrl: ratedpeopleUrl,
+            reviewUrl: ratedpeopleUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`Rated People URL ${ratedpeopleUrl} failed business name verification`);
         }
       }
+    }
 
-      // TrustATrader - SerpAPI or AI search only
-      if (!links.trustatrader) {
-        let trustatraderUrl = (await findUrlViaSerpAPI(businessName, 'trustatrader', address ?? undefined)) ?? undefined;
-        
-        if (!trustatraderUrl) {
-          trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
-        }
-        
-        if (trustatraderUrl) {
-          const isVerified = await verifyUrlMatchesBusiness(trustatraderUrl, businessName);
-          if (isVerified) {
-            links.trustatrader = {
-              profileUrl: trustatraderUrl,
-              reviewUrl: trustatraderUrl,
-              verified: true,
-            };
-          } else {
-            console.log(`TrustATrader URL ${trustatraderUrl} failed business name verification`);
-          }
+    // TrustATrader - search for all businesses
+    if (!links.trustatrader) {
+      let trustatraderUrl = (await findUrlViaGoogleSearch(businessName, 'trustatrader', address ?? undefined)) ?? undefined;
+      
+      if (!trustatraderUrl) {
+        trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      if (trustatraderUrl) {
+        const isVerified = await verifyUrlMatchesBusiness(trustatraderUrl, businessName);
+        if (isVerified) {
+          links.trustatrader = {
+            profileUrl: trustatraderUrl,
+            reviewUrl: trustatraderUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`TrustATrader URL ${trustatraderUrl} failed business name verification`);
         }
       }
     }
