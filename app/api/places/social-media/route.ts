@@ -4,12 +4,12 @@ import { prisma } from '@/lib/prisma';
 
 interface SocialMediaLinks {
   google?: { reviewUrl?: string; mapsUrl?: string };
-  facebook?: { profileUrl?: string; reviewUrl?: string; verified?: boolean };
-  instagram?: { profileUrl?: string; reviewUrl?: string; verified?: boolean };
-  tiktok?: { profileUrl?: string; verified?: boolean };
-  twitter?: { profileUrl?: string; verified?: boolean };
-  youtube?: { profileUrl?: string; verified?: boolean };
-  linkedin?: { profileUrl?: string; verified?: boolean };
+  facebook?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; verified?: boolean };
+  instagram?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; verified?: boolean };
+  tiktok?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
+  twitter?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
+  youtube?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
+  linkedin?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   trustpilot?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   yelp?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -340,9 +340,9 @@ async function verifyUrlMatchesBusiness(url: string, businessName: string, timeo
     const urlMatchRatio = urlMatchCount / nameWords.length;
     
     // Pass if either:
-    // 1. 60%+ of words found in page content, OR
-    // 2. 50%+ of words found in URL itself
-    return matchRatio >= 0.6 || urlMatchRatio >= 0.5;
+    // 1. 40%+ of words found in page content, OR
+    // 2. 30%+ of words found in URL itself
+    return matchRatio >= 0.4 || urlMatchRatio >= 0.3;
   } catch (error) {
     console.error('Error verifying URL matches business:', error);
     return false;
@@ -682,6 +682,8 @@ export async function GET(request: NextRequest) {
     // Try Google search first, then try AI as fallback, never guess without verification
     // Second-level verification: check page content matches business name
     
+    const searchQuery = `${businessName} ${address || ''}`.trim();
+
     if (!links.facebook) {
       let facebookUrl = (await findUrlViaGoogleSearch(businessName, 'facebook', address ?? undefined)) ?? undefined;
       
@@ -698,6 +700,12 @@ export async function GET(request: NextRequest) {
           reviewUrl: `${cleanUrl}/reviews`,
           verified: true 
         };
+      } else {
+        // Fallback to search URL
+        links.facebook = {
+          profileUrl: `https://www.facebook.com/search/top?q=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -712,6 +720,11 @@ export async function GET(request: NextRequest) {
         links.instagram = { 
           profileUrl: instagramUrl, 
           verified: true 
+        };
+      } else {
+        links.instagram = {
+          profileUrl: `https://www.google.com/search?q=site:instagram.com+${encodeURIComponent(searchQuery)}`,
+          verified: false
         };
       }
     }
@@ -728,6 +741,11 @@ export async function GET(request: NextRequest) {
           profileUrl: twitterUrl, 
           verified: true 
         };
+      } else {
+        links.twitter = {
+          profileUrl: `https://twitter.com/search?q=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -742,6 +760,11 @@ export async function GET(request: NextRequest) {
         links.youtube = { 
           profileUrl: youtubeUrl, 
           verified: true 
+        };
+      } else {
+        links.youtube = {
+          profileUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`,
+          verified: false
         };
       }
     }
@@ -758,6 +781,11 @@ export async function GET(request: NextRequest) {
           profileUrl: tiktokUrl, 
           verified: true 
         };
+      } else {
+        links.tiktok = {
+          profileUrl: `https://www.tiktok.com/search?q=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -772,6 +800,11 @@ export async function GET(request: NextRequest) {
         links.linkedin = { 
           profileUrl: linkedinUrl, 
           verified: true 
+        };
+      } else {
+        links.linkedin = {
+          profileUrl: `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(searchQuery)}`,
+          verified: false
         };
       }
     }
@@ -815,8 +848,11 @@ export async function GET(request: NextRequest) {
         reviewUrl: trustpilotUrl,
         verified: true,
       };
-    } else {
-      delete links.trustpilot; // Remove if verification failed
+    } else if (!links.trustpilot) {
+      links.trustpilot = {
+        profileUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(searchQuery)}`,
+        verified: false
+      };
     }
 
     // TripAdvisor - search for all businesses
@@ -829,17 +865,17 @@ export async function GET(request: NextRequest) {
       }
       
       // Only include if verified AND page content matches business name
-      if (tripadvisorUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(tripadvisorUrl, businessName);
-        if (isVerified) {
-          links.tripadvisor = {
-            profileUrl: tripadvisorUrl,
-            reviewUrl: tripadvisorUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`TripAdvisor URL ${tripadvisorUrl} failed business name verification`);
-        }
+      if (tripadvisorUrl && await verifyUrlMatchesBusiness(tripadvisorUrl, businessName)) {
+        links.tripadvisor = {
+          profileUrl: tripadvisorUrl,
+          reviewUrl: tripadvisorUrl,
+          verified: true,
+        };
+      } else {
+        links.tripadvisor = {
+          profileUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -853,17 +889,17 @@ export async function GET(request: NextRequest) {
       }
       
       // Only include if verified AND page content matches business name
-      if (yelpUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(yelpUrl, businessName);
-        if (isVerified) {
-          links.yelp = {
-            profileUrl: yelpUrl,
-            reviewUrl: yelpUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`Yelp URL ${yelpUrl} failed business name verification`);
-        }
+      if (yelpUrl && await verifyUrlMatchesBusiness(yelpUrl, businessName)) {
+        links.yelp = {
+          profileUrl: yelpUrl,
+          reviewUrl: yelpUrl,
+          verified: true,
+        };
+      } else {
+        links.yelp = {
+          profileUrl: `https://www.yelp.com/search?find_desc=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -875,17 +911,17 @@ export async function GET(request: NextRequest) {
         yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      if (yellUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(yellUrl, businessName);
-        if (isVerified) {
-          links.yell = {
-            profileUrl: yellUrl,
-            reviewUrl: yellUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`Yell URL ${yellUrl} failed business name verification`);
-        }
+      if (yellUrl && await verifyUrlMatchesBusiness(yellUrl, businessName)) {
+        links.yell = {
+          profileUrl: yellUrl,
+          reviewUrl: yellUrl,
+          verified: true,
+        };
+      } else {
+        links.yell = {
+          profileUrl: `https://www.yell.com/ucs/UcsSearchAction.do?keywords=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -897,17 +933,17 @@ export async function GET(request: NextRequest) {
         checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      if (checkatradeUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(checkatradeUrl, businessName);
-        if (isVerified) {
-          links.checkatrade = {
-            profileUrl: checkatradeUrl,
-            reviewUrl: checkatradeUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`Checkatrade URL ${checkatradeUrl} failed business name verification`);
-        }
+      if (checkatradeUrl && await verifyUrlMatchesBusiness(checkatradeUrl, businessName)) {
+        links.checkatrade = {
+          profileUrl: checkatradeUrl,
+          reviewUrl: checkatradeUrl,
+          verified: true,
+        };
+      } else {
+        links.checkatrade = {
+          profileUrl: `https://www.checkatrade.com/Search?query=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -919,17 +955,17 @@ export async function GET(request: NextRequest) {
         ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      if (ratedpeopleUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName);
-        if (isVerified) {
-          links.ratedpeople = {
-            profileUrl: ratedpeopleUrl,
-            reviewUrl: ratedpeopleUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`Rated People URL ${ratedpeopleUrl} failed business name verification`);
-        }
+      if (ratedpeopleUrl && await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName)) {
+        links.ratedpeople = {
+          profileUrl: ratedpeopleUrl,
+          reviewUrl: ratedpeopleUrl,
+          verified: true,
+        };
+      } else {
+        links.ratedpeople = {
+          profileUrl: `https://www.ratedpeople.com/local/${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
@@ -941,17 +977,17 @@ export async function GET(request: NextRequest) {
         trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
       }
       
-      if (trustatraderUrl) {
-        const isVerified = await verifyUrlMatchesBusiness(trustatraderUrl, businessName);
-        if (isVerified) {
-          links.trustatrader = {
-            profileUrl: trustatraderUrl,
-            reviewUrl: trustatraderUrl,
-            verified: true,
-          };
-        } else {
-          console.log(`TrustATrader URL ${trustatraderUrl} failed business name verification`);
-        }
+      if (trustatraderUrl && await verifyUrlMatchesBusiness(trustatraderUrl, businessName)) {
+        links.trustatrader = {
+          profileUrl: trustatraderUrl,
+          reviewUrl: trustatraderUrl,
+          verified: true,
+        };
+      } else {
+        links.trustatrader = {
+          profileUrl: `https://www.trustatrader.com/search?q=${encodeURIComponent(searchQuery)}`,
+          verified: false
+        };
       }
     }
 
