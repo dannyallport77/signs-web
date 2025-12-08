@@ -12,6 +12,7 @@ interface SocialMediaLinks {
   linkedin?: { profileUrl?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   trustpilot?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  yelp?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   yell?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   checkatrade?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   ratedpeople?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -19,7 +20,7 @@ interface SocialMediaLinks {
 }
 
 const CACHE_KEY_DELIMITER = '::';
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 function buildCacheKey(businessName: string, address?: string | null, website?: string | null): string {
   const normalize = (value?: string | null) => {
@@ -255,6 +256,15 @@ async function scrapeWebsiteForSocialMedia(websiteUrl: string, timeoutMs: number
       }
     }
 
+    // Find Yelp
+    for (const link of allLinks) {
+      if (link.includes('yelp.com/biz/') || link.includes('yelp.co.uk/biz/')) {
+        const url = new URL(link.startsWith('http') ? link : `https://${link}`).href;
+        links.yelp = { profileUrl: url, reviewUrl: url, verified: true };
+        break;
+      }
+    }
+
     return links;
   } catch (error) {
     console.error(`Error scraping website for social media:`, error);
@@ -419,14 +429,15 @@ Response format: Just the URL or "NOT_FOUND"`;
     // Try Gemini if OpenAI failed or not available
     if (!url && geminiKey) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 200,
+              maxOutputTokens: 500,
+              candidateCount: 1,
             },
           }),
           signal: AbortSignal.timeout(10000),
@@ -437,6 +448,7 @@ Response format: Just the URL or "NOT_FOUND"`;
           const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
           if (content && content !== 'NOT_FOUND' && content.startsWith('http')) {
             url = content;
+            console.log(`Gemini found ${platform} URL for ${businessName}: ${url}`);
           }
         }
       } catch (error) {
@@ -484,9 +496,18 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
         signal: AbortSignal.timeout(8000),
       });
       
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.warn(`SerpAPI returned ${response.status} for ${platform}`);
+        return null;
+      }
       
       const data = await response.json();
+      
+      // Check for rate limiting or errors
+      if (data.error) {
+        console.warn(`SerpAPI error for ${platform}: ${data.error}`);
+        return null;
+      }
       
       // Extract URLs from organic results
       const organicResults = data.organic_results || [];
@@ -513,6 +534,7 @@ async function findUrlViaSerpAPI(businessName: string, platform: string, address
         linkedin: ['linkedin.com/company/', 'linkedin.com/in/'],
         trustpilot: ['trustpilot.com/review/', 'uk.trustpilot.com/review/'],
         tripadvisor: ['tripadvisor.com/Restaurant_Review', 'tripadvisor.com/Hotel_Review', 'tripadvisor.com/Attraction_Review', 'tripadvisor.co.uk/Restaurant_Review', 'tripadvisor.co.uk/Hotel_Review'],
+        yelp: ['yelp.com/biz/', 'yelp.co.uk/biz/'],
         yell: ['yell.com/biz/'],
         checkatrade: ['checkatrade.com/trades/'],
         ratedpeople: ['ratedpeople.com/tradesman/', 'ratedpeople.com/profile/'],
@@ -818,6 +840,30 @@ export async function GET(request: NextRequest) {
           };
         } else {
           console.log(`TripAdvisor URL ${tripadvisorUrl} failed business name verification`);
+        }
+      }
+    }
+
+    // Yelp - hospitality only (restaurants, cafes, bars)
+    // ONLY use verified URLs, never guess
+    if (isHospitality && !links.yelp) {
+      let yelpUrl = (await findUrlViaSerpAPI(businessName, 'yelp', address ?? undefined)) ?? undefined;
+      
+      if (!yelpUrl) {
+        yelpUrl = (await findUrlViaAI(businessName, 'yelp', address ?? undefined, website ?? undefined)) ?? undefined;
+      }
+      
+      // Only include if verified AND page content matches business name
+      if (yelpUrl) {
+        const isVerified = await verifyUrlMatchesBusiness(yelpUrl, businessName);
+        if (isVerified) {
+          links.yelp = {
+            profileUrl: yelpUrl,
+            reviewUrl: yelpUrl,
+            verified: true,
+          };
+        } else {
+          console.log(`Yelp URL ${yelpUrl} failed business name verification`);
         }
       }
     }

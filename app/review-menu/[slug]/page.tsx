@@ -75,10 +75,19 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
     target?: string;
   }> = [];
 
-  // 1. Other platforms
-  menu.platforms.forEach(platform => {
-    if (platform.platformKey === 'google') return;
-    
+  // 1. Other platforms - prioritize Facebook, Instagram, TikTok, then others
+  const platformPriority = ['facebook', 'instagram', 'tiktok', 'twitter', 'linkedin', 'tripadvisor', 'trustpilot', 'yelp', 'yell'];
+  const sortedPlatforms = menu.platforms
+    .filter(p => p.platformKey !== 'google')
+    .sort((a, b) => {
+      const aIndex = platformPriority.indexOf(a.platformKey);
+      const bIndex = platformPriority.indexOf(b.platformKey);
+      const aPriority = aIndex === -1 ? 999 : aIndex;
+      const bPriority = bIndex === -1 ? 999 : bIndex;
+      return aPriority - bPriority;
+    });
+
+  sortedPlatforms.forEach(platform => {
     const preset = PLATFORM_PRESET_MAP[platform.platformKey as PlatformKey];
     satellites.push({
       id: platform.id,
@@ -139,7 +148,18 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
     });
   }
 
-  const renderListLayout = () => (
+  const renderListLayout = () => {
+    // Sort platforms: Google first, then Facebook, Instagram, TikTok, others
+    const platformPriorityList = ['google', 'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin', 'tripadvisor', 'trustpilot', 'yelp', 'yell'];
+    const sortedAllPlatforms = [...menu.platforms].sort((a, b) => {
+      const aIndex = platformPriorityList.indexOf(a.platformKey);
+      const bIndex = platformPriorityList.indexOf(b.platformKey);
+      const aPriority = aIndex === -1 ? 999 : aIndex;
+      const bPriority = bIndex === -1 ? 999 : bIndex;
+      return aPriority - bPriority;
+    });
+
+    return (
     <div className="mt-10 grid gap-4">
       {menu.platforms.length === 0 && !menu.wifiSsid && !menu.promotionId && (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-slate-300">
@@ -147,7 +167,8 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
         </div>
       )}
 
-      {menu.platforms.map((platform) => {
+      {sortedAllPlatforms.map((platform) => {
+        const isGoogle = platform.platformKey === 'google';
         const preset = PLATFORM_PRESET_MAP[platform.platformKey as PlatformKey];
         const accent = preset?.accent || 'from-indigo-500 to-indigo-600';
         const icon = platform.icon || preset?.icon || '⭐';
@@ -162,37 +183,28 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
             href={`/review-menu/${menu.slug}/platform/${platform.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`group relative overflow-hidden rounded-2xl bg-gradient-to-r ${accent} p-[1px] shadow-lg transition-transform hover:-translate-y-1`}
+            className={`group relative overflow-hidden rounded-2xl bg-gradient-to-r ${accent} ${isGoogle ? 'p-[2px] shadow-xl' : 'p-[1px] shadow-lg'} transition-transform hover:-translate-y-1`}
           >
-            <div className="flex w-full items-center justify-between rounded-2xl bg-slate-900/90 p-5">
+            <div className={`flex w-full items-center justify-between rounded-2xl bg-slate-900/90 ${isGoogle ? 'p-7' : 'p-5'}`}>
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl overflow-hidden relative">
+                <div className={`flex items-center justify-center rounded-2xl bg-white/10 overflow-hidden relative ${isGoogle ? 'h-20 w-20 text-4xl' : 'h-14 w-14 text-3xl'}`}>
                   {logoPath ? (
                     <Image
                       src={logoPath}
                       alt={platform.name}
                       fill
-                      className="object-contain p-2"
+                      className={isGoogle ? 'object-contain p-3' : 'object-contain p-2'}
                     />
                   ) : (
                     icon
                   )}
                 </div>
                 <div>
-                  <p className="text-xl font-semibold">{platform.name}</p>
-                  <p className="text-sm text-white/80 flex items-center gap-2">
-                    {description}
-                    {isFruitMachine && (
-                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-rose-200">
-                        Promo
-                      </span>
-                    )}
-                  </p>
+                  <p className={`font-semibold ${isGoogle ? 'text-2xl' : 'text-xl'}`}>{ctaLabel === 'Leave Review' ? `Leave a ${platform.name.replace(' Review', '')} Review` : platform.name}</p>
                 </div>
               </div>
               <div className="text-right text-sm font-semibold uppercase tracking-wide text-white/80">
-                {ctaLabel}
-                <span className="ml-2 transition-transform group-hover:translate-x-1">→</span>
+                <span className="transition-transform group-hover:translate-x-1">→</span>
               </div>
             </div>
           </a>
@@ -321,7 +333,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
           >
             <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/90 text-center relative overflow-hidden">
               {googleLogoPath ? (
-                <div className="relative w-24 h-24 mb-2">
+                <div className="relative w-32 h-32 mb-3">
                   <Image
                     src={googleLogoPath}
                     alt="Google"
@@ -330,9 +342,9 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
                   />
                 </div>
               ) : (
-                <span className="text-6xl mb-2">⭐</span>
+                <span className="text-7xl mb-3">⭐</span>
               )}
-              <span className="font-bold text-xl relative z-10">Review on<br/>Google</span>
+              <span className="font-bold text-2xl relative z-10">Leave a<br/>Google Review</span>
             </div>
           </a>
         </div>
@@ -347,7 +359,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
             href={`/review-menu/${menu.slug}/platform/${google.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`group relative flex h-40 w-40 flex-col items-center justify-center rounded-full bg-gradient-to-br ${googleAccent} p-1 shadow-[0_0_40px_rgba(251,191,36,0.4)] transition-transform hover:scale-105 active:scale-95 animate-pulse`}
+            className={`group relative flex h-44 w-44 flex-col items-center justify-center rounded-full bg-gradient-to-br ${googleAccent} p-1 shadow-[0_0_50px_rgba(251,191,36,0.5)] transition-transform hover:scale-105 active:scale-95 animate-pulse`}
             style={{ animationDuration: '3s' }}
           >
             <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-900/95 text-center p-2 relative overflow-hidden">
@@ -415,28 +427,20 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
-      <div className="max-w-3xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden" suppressHydrationWarning>
+      <div className="max-w-3xl mx-auto px-6 py-12" suppressHydrationWarning>
         <div className="text-center space-y-4 relative z-20">
-          {menu.logoUrl ? (
-            <div className="flex justify-center">
-              <Image
-                src={menu.logoUrl}
-                alt={`${menu.businessName} logo`}
-                width={64}
-                height={64}
-                unoptimized
-                className="h-16 w-16 rounded-2xl object-cover border border-white/10 shadow-lg"
-              />
-            </div>
-          ) : (
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-white/10 flex items-center justify-center text-2xl font-bold">
-              {menu.businessName.substring(0, 2).toUpperCase()}
-            </div>
-          )}
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Choose a platform</p>
-          <h1 className="text-4xl font-bold tracking-tight">{heroTitle}</h1>
-          <p className="text-base text-slate-300">{heroSubtitle}</p>
+          <div className="flex justify-center">
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={80}
+              height={80}
+              unoptimized
+              className="h-20 w-20 rounded-2xl object-contain"
+            />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">{menu.businessName}</h1>
         </div>
 
         {googlePlatform ? renderOrbitLayout(googlePlatform) : renderListLayout()}

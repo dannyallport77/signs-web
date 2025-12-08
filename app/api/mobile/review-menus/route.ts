@@ -39,6 +39,9 @@ export async function POST(request: NextRequest) {
       wifiPassword,
       wifiSecurity,
       promotionId,
+      websiteUrl,
+      appDownloadUrl,
+      appStoreType,
     } = body as {
       businessName?: string;
       businessAddress?: string;
@@ -52,6 +55,9 @@ export async function POST(request: NextRequest) {
       wifiPassword?: string;
       wifiSecurity?: string;
       promotionId?: string;
+      websiteUrl?: string;
+      appDownloadUrl?: string;
+      appStoreType?: string;
     };
 
     if (!businessName) {
@@ -93,6 +99,9 @@ export async function POST(request: NextRequest) {
         wifiPassword,
         wifiSecurity,
         promotionId,
+        websiteUrl,
+        appDownloadUrl,
+        appStoreType,
         platforms: {
           create: preparedPlatforms,
         },

@@ -254,9 +254,9 @@ export default function NFCTagsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-6 w-6 bg-gray-200 rounded-full flex items-center justify-center text-xs text-gray-500 font-bold mr-2">
-                          {tag.writtenBy.substring(0, 1).toUpperCase()}
+                          {tag.writtenBy ? tag.writtenBy.substring(0, 1).toUpperCase() : '?'}
                         </div>
-                        <span className="text-sm text-gray-900">{tag.writtenBy}</span>
+                        <span className="text-sm text-gray-900">{tag.writtenBy || 'Unknown'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
