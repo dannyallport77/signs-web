@@ -51,18 +51,25 @@ export async function GET(request: NextRequest) {
     // Only use APIs if not websiteOnly mode
     if (!websiteOnly) {
       // Add API keys from environment
-      if (process.env.GOOGLE_CSE_ID && process.env.GOOGLE_API_KEY) {
-        options.googleCseId = process.env.GOOGLE_CSE_ID;
-        options.googleApiKey = process.env.GOOGLE_API_KEY;
+      // Note: GOOGLE_PLACES_API_KEY works for Custom Search too
+      const googleApiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_API_KEY;
+      const googleCseId = process.env.GOOGLE_CSE_ID || process.env.GOOGLE_SEARCH_ENGINE_ID;
+      
+      if (googleCseId && googleApiKey) {
+        options.googleCseId = googleCseId;
+        options.googleApiKey = googleApiKey;
+        console.log(`[API] Using Google CSE with ID: ${googleCseId.substring(0, 8)}...`);
       }
       if (process.env.SEARCHAPI_KEY) {
         options.searchApiKey = process.env.SEARCHAPI_KEY;
+        console.log(`[API] SearchAPI key configured`);
       }
       if (process.env.SERPAPI_KEY) {
         options.serpApiKey = process.env.SERPAPI_KEY;
       }
       if (process.env.SCRAPINGBEE_KEY) {
         options.scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
+        console.log(`[API] ScrapingBee key configured`);
       }
       if (process.env.HUNTER_API_KEY) {
         options.hunterApiKey = process.env.HUNTER_API_KEY;

@@ -278,7 +278,7 @@ export async function findViaDuckDuckGo(
 
 /**
  * DuckDuckGo HTML Search - FREE, no API key
- * Scrapes actual search results
+ * Scrapes actual search results (filters out ads)
  */
 export async function searchViaDuckDuckGoHTML(
   businessName: string,
@@ -288,28 +288,72 @@ export async function searchViaDuckDuckGoHTML(
     await rateLimiter.acquire('duckduckgo_html');
     
     const query = `${businessName} site:${siteDomain}`;
+    console.log(`[DDG] Searching: ${query}`);
+    
     const response = await fetchWithTimeout(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
       { timeoutMs: 8000 }
     );
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log(`[DDG] Response not OK: ${response.status}`);
+      return null;
+    }
     
     const html = await response.text();
     const $ = cheerio.load(html);
     
-    // Find first result link
-    const firstResult = $('.result__a').first().attr('href');
-    if (firstResult) {
-      // DuckDuckGo wraps URLs, need to extract actual URL
-      const match = firstResult.match(/uddg=([^&]+)/);
-      if (match) {
-        return decodeURIComponent(match[1]);
+    // Debug: log first 500 chars of HTML to see what we're getting
+    console.log(`[DDG] HTML preview: ${html.substring(0, 300)}...`);
+    
+    // Find organic results only (skip ads)
+    // Ads have class 'result--ad' or links containing 'duckduckgo.com/y.js'
+    let foundUrl: string | null = null;
+    const resultCount = $('.result').length;
+    const linkCount = $('.result__a').length;
+    console.log(`[DDG] Found ${resultCount} .result elements, ${linkCount} .result__a links for ${siteDomain}`);
+    
+    $('.result').each((i, el) => {
+      if (foundUrl) return; // Already found one
+      
+      // Skip ads
+      if ($(el).hasClass('result--ad')) {
+        console.log(`[DDG] Skipping ad result`);
+        return;
       }
-      return firstResult;
+      
+      const link = $(el).find('.result__a').attr('href');
+      if (!link) return;
+      
+      console.log(`[DDG] Checking link: ${link.substring(0, 100)}...`);
+      
+      // Skip DuckDuckGo ad redirect URLs
+      if (link.includes('duckduckgo.com/y.js') || link.includes('ad_provider')) {
+        console.log(`[DDG] Skipping ad URL`);
+        return;
+      }
+      
+      // Extract actual URL from DuckDuckGo redirect
+      const match = link.match(/uddg=([^&]+)/);
+      if (match) {
+        const decodedUrl = decodeURIComponent(match[1]);
+        console.log(`[DDG] Decoded URL: ${decodedUrl}`);
+        // Verify it's actually from the target domain
+        if (decodedUrl.includes(siteDomain)) {
+          foundUrl = decodedUrl;
+          console.log(`[DDG] ✓ Found valid URL for ${siteDomain}: ${foundUrl}`);
+        }
+      } else if (link.includes(siteDomain)) {
+        foundUrl = link.startsWith('http') ? link : `https://${link}`;
+        console.log(`[DDG] ✓ Found direct URL for ${siteDomain}: ${foundUrl}`);
+      }
+    });
+    
+    if (!foundUrl) {
+      console.log(`[DDG] ✗ No valid URL found for ${siteDomain}`);
     }
     
-    return null;
+    return foundUrl;
   } catch (error) {
     console.error('DuckDuckGo HTML error:', error);
     return null;
@@ -327,14 +371,27 @@ export async function findViaGoogleCSE(
   businessName: string,
   cseId: string,
   apiKey: string,
-  platforms?: string[]
+  platforms?: string[],
+  locationHint: string = 'UK' // Add location hint for better results
 ): Promise<Partial<BusinessPlatforms>> {
   const results: Partial<BusinessPlatforms> = {};
   
+  console.log(`[Google CSE] Starting search for: ${businessName} (${locationHint})`);
+  
+  // Extended platform list including UK trade platforms
   const platformsToSearch = platforms || [
+    // Review platforms
     'trustpilot.com',
     'tripadvisor.com',
     'yelp.com',
+    // UK Trade platforms
+    'checkatrade.com',
+    'yell.com',
+    'trustatrader.com',
+    'ratedpeople.com',
+    'feefo.com',
+    'reviews.io',
+    // Social media
     'facebook.com',
     'instagram.com',
     'linkedin.com/company',
@@ -347,7 +404,10 @@ export async function findViaGoogleCSE(
     try {
       await rateLimiter.acquire('google_cse');
       
-      const query = `"${businessName}" site:${domain}`;
+      // Add location hint for UK-based searches to improve accuracy
+      const query = `"${businessName}" ${locationHint} site:${domain}`;
+      console.log(`[Google CSE] Searching: ${query}`);
+      
       const response = await withRetry(
         () => fetchWithTimeout(
           `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&cx=${cseId}&key=${apiKey}&num=3`,
@@ -360,24 +420,39 @@ export async function findViaGoogleCSE(
         if (response.status === 429) {
           throw new ScraperError('Rate limited', 'google_cse', 429, true);
         }
+        console.log(`[Google CSE] Error response for ${domain}: ${response.status}`);
         return null;
       }
 
       const data = await response.json();
-      const firstResult = data.items?.[0];
-
-      if (firstResult?.link) {
-        const platformKey = getPlatformKey(domain);
-        return {
-          key: platformKey,
-          link: {
-            url: firstResult.link,
-            foundVia: 'google_cse' as const,
-            verified: false,
-            confidence: calculateConfidence(businessName, firstResult.title, firstResult.snippet),
-          },
-        };
+      const platformKey = getPlatformKey(domain);
+      
+      // Check up to 5 results to find a valid official URL
+      const items = data.items || [];
+      for (let i = 0; i < Math.min(items.length, 5); i++) {
+        const result = items[i];
+        if (!result?.link) continue;
+        
+        // Validate this is an official page, not a random post/video/discovery
+        const validation = isValidOfficialUrl(result.link, platformKey, businessName);
+        
+        if (validation.valid) {
+          console.log(`[Google CSE] ✓ Found ${platformKey}: ${result.link}`);
+          return {
+            key: platformKey,
+            link: {
+              url: result.link,
+              foundVia: 'google_cse' as const,
+              verified: false,
+              confidence: calculateConfidence(businessName, result.title, result.snippet),
+            },
+          };
+        } else {
+          console.log(`[Google CSE] ✗ Skipping ${platformKey} result ${i+1}: ${validation.reason}`);
+        }
       }
+      
+      console.log(`[Google CSE] ✗ No valid results for ${domain}`);
       return null;
     } catch (error) {
       console.error(`Google CSE error for ${domain}:`, error);
@@ -401,15 +476,24 @@ export async function findViaGoogleCSE(
  */
 export async function findViaSearchAPI(
   businessName: string,
-  apiKey: string
+  apiKey: string,
+  locationHint: string = 'UK'
 ): Promise<Partial<BusinessPlatforms>> {
   const results: Partial<BusinessPlatforms> = {};
 
   const platforms = [
+    // Review platforms
     { name: 'trustpilot', domain: 'trustpilot.com' },
     { name: 'tripadvisor', domain: 'tripadvisor.com' },
     { name: 'yelp', domain: 'yelp.com' },
+    // UK Trade platforms
     { name: 'checkatrade', domain: 'checkatrade.com' },
+    { name: 'yell', domain: 'yell.com' },
+    { name: 'trustatrader', domain: 'trustatrader.com' },
+    { name: 'ratedpeople', domain: 'ratedpeople.com' },
+    { name: 'feefo', domain: 'feefo.com' },
+    { name: 'reviews_io', domain: 'reviews.io' },
+    // Social media
     { name: 'facebook', domain: 'facebook.com' },
     { name: 'instagram', domain: 'instagram.com' },
   ];
@@ -418,7 +502,7 @@ export async function findViaSearchAPI(
     try {
       await rateLimiter.acquire('searchapi');
       
-      const query = `"${businessName}" site:${platform.domain}`;
+      const query = `"${businessName}" ${locationHint} site:${platform.domain}`;
       const response = await withRetry(
         () => fetchWithTimeout(
           `https://www.searchapi.io/api/v1/search?q=${encodeURIComponent(query)}&api_key=${apiKey}&num=3`,
@@ -430,18 +514,26 @@ export async function findViaSearchAPI(
       if (!response.ok) return null;
 
       const data = await response.json();
-      const firstResult = data.organic_results?.[0];
-
-      if (firstResult?.link) {
-        return {
-          key: platform.name,
-          link: {
-            url: firstResult.link,
-            foundVia: 'searchapi' as const,
-            verified: false,
-            confidence: calculateConfidence(businessName, firstResult.title, firstResult.snippet),
-          },
-        };
+      const organicResults = data.organic_results || [];
+      
+      // Check multiple results to find a valid official URL
+      for (let i = 0; i < Math.min(organicResults.length, 5); i++) {
+        const result = organicResults[i];
+        if (!result?.link) continue;
+        
+        const validation = isValidOfficialUrl(result.link, platform.name, businessName);
+        
+        if (validation.valid) {
+          return {
+            key: platform.name,
+            link: {
+              url: result.link,
+              foundVia: 'searchapi' as const,
+              verified: false,
+              confidence: calculateConfidence(businessName, result.title, result.snippet),
+            },
+          };
+        }
       }
       return null;
     } catch (error) {
@@ -466,15 +558,22 @@ export async function findViaSearchAPI(
  */
 export async function findViaSerpAPI(
   businessName: string,
-  apiKey: string
+  apiKey: string,
+  locationHint: string = 'UK'
 ): Promise<Partial<BusinessPlatforms>> {
   const results: Partial<BusinessPlatforms> = {};
 
   const platforms = [
+    // Review platforms
     { name: 'trustpilot', domain: 'trustpilot.com' },
     { name: 'google', domain: 'google.com/maps' },
     { name: 'tripadvisor', domain: 'tripadvisor.com' },
     { name: 'yelp', domain: 'yelp.com' },
+    // UK Trade platforms
+    { name: 'checkatrade', domain: 'checkatrade.com' },
+    { name: 'yell', domain: 'yell.com' },
+    { name: 'trustatrader', domain: 'trustatrader.com' },
+    // Social media
     { name: 'linkedin', domain: 'linkedin.com/company' },
   ];
 
@@ -482,10 +581,10 @@ export async function findViaSerpAPI(
     try {
       await rateLimiter.acquire('serpapi');
       
-      const query = `"${businessName}" site:${platform.domain}`;
+      const query = `"${businessName}" ${locationHint} site:${platform.domain}`;
       const response = await withRetry(
         () => fetchWithTimeout(
-          `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${apiKey}&engine=google&num=3`,
+          `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${apiKey}&engine=google&gl=uk&num=3`,
           { timeoutMs: 10000 }
         ),
         { maxRetries: 2, service: 'serpapi' }
@@ -494,18 +593,26 @@ export async function findViaSerpAPI(
       if (!response.ok) return null;
 
       const data = await response.json();
-      const firstResult = data.organic_results?.[0];
-
-      if (firstResult?.link) {
-        return {
-          key: platform.name,
-          link: {
-            url: firstResult.link,
-            foundVia: 'serpapi' as const,
-            verified: false,
-            confidence: calculateConfidence(businessName, firstResult.title, firstResult.snippet),
-          },
-        };
+      const organicResults = data.organic_results || [];
+      
+      // Check multiple results to find a valid official URL
+      for (let i = 0; i < Math.min(organicResults.length, 5); i++) {
+        const result = organicResults[i];
+        if (!result?.link) continue;
+        
+        const validation = isValidOfficialUrl(result.link, platform.name, businessName);
+        
+        if (validation.valid) {
+          return {
+            key: platform.name,
+            link: {
+              url: result.link,
+              foundVia: 'serpapi' as const,
+              verified: false,
+              confidence: calculateConfidence(businessName, result.title, result.snippet),
+            },
+          };
+        }
       }
       return null;
     } catch (error) {
@@ -530,12 +637,18 @@ export async function findViaSerpAPI(
  */
 export async function findViaBingAPI(
   businessName: string,
-  apiKey: string
+  apiKey: string,
+  locationHint: string = 'UK'
 ): Promise<Partial<BusinessPlatforms>> {
   const results: Partial<BusinessPlatforms> = {};
 
   const platforms = [
+    // Review platforms
     { name: 'trustpilot', domain: 'trustpilot.com' },
+    // UK Trade platforms
+    { name: 'checkatrade', domain: 'checkatrade.com' },
+    { name: 'yell', domain: 'yell.com' },
+    // Social media
     { name: 'facebook', domain: 'facebook.com' },
     { name: 'instagram', domain: 'instagram.com' },
     { name: 'linkedin', domain: 'linkedin.com' },
@@ -546,10 +659,10 @@ export async function findViaBingAPI(
     try {
       await rateLimiter.acquire('bing');
       
-      const query = `"${businessName}" site:${platform.domain}`;
+      const query = `"${businessName}" ${locationHint} site:${platform.domain}`;
       const response = await withRetry(
         () => fetchWithTimeout(
-          `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=3`,
+          `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=3&mkt=en-GB`,
           {
             timeoutMs: 10000,
             headers: {
@@ -563,18 +676,26 @@ export async function findViaBingAPI(
       if (!response.ok) return null;
 
       const data = await response.json();
-      const firstResult = data.webPages?.value?.[0];
-
-      if (firstResult?.url) {
-        return {
-          key: platform.name,
-          link: {
-            url: firstResult.url,
-            foundVia: 'bing' as const,
-            verified: false,
-            confidence: calculateConfidence(businessName, firstResult.name, firstResult.snippet),
-          },
-        };
+      const webResults = data.webPages?.value || [];
+      
+      // Check multiple results to find a valid official URL
+      for (let i = 0; i < Math.min(webResults.length, 5); i++) {
+        const result = webResults[i];
+        if (!result?.url) continue;
+        
+        const validation = isValidOfficialUrl(result.url, platform.name, businessName);
+        
+        if (validation.valid) {
+          return {
+            key: platform.name,
+            link: {
+              url: result.url,
+              foundVia: 'bing' as const,
+              verified: false,
+              confidence: calculateConfidence(businessName, result.name, result.snippet),
+            },
+          };
+        }
       }
       return null;
     } catch (error) {
@@ -862,6 +983,18 @@ export async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<
   if (cached !== null) return cached;
 
   try {
+    // Reject obviously invalid URLs (ad redirects, tracking URLs)
+    if (
+      url.includes('duckduckgo.com/y.js') ||
+      url.includes('ad_provider') ||
+      url.includes('ad_domain') ||
+      url.includes('/aclick?') ||
+      url.includes('click_metadata')
+    ) {
+      urlVerificationCache.set(url, false);
+      return false;
+    }
+
     const response = await fetchWithTimeout(url, {
       method: 'HEAD',
       timeoutMs,
@@ -957,18 +1090,266 @@ function getPlatformKey(domain: string): keyof BusinessPlatforms {
   return domain.split('.')[0] as keyof BusinessPlatforms;
 }
 
+/**
+ * Validate that a URL is an official/main profile, not a discovery page, video, or random content
+ * Returns: { valid: boolean, reason?: string }
+ */
+function isValidOfficialUrl(url: string, platform: string, businessName: string): { valid: boolean; reason?: string } {
+  const urlLower = url.toLowerCase();
+  const businessLower = businessName.toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/\b(uk|us|usa|ltd|limited|plc|inc|llc|co|company|the)\b/gi, '')
+    .trim();
+  
+  // Extract key business words (at least 3 chars, not common words)
+  const businessWords = businessLower
+    .split(/[\s,&\-_]+/)
+    .filter(w => w.length >= 3)
+    .filter(w => !['and', 'the', 'for', 'with'].includes(w));
+
+  // Platform-specific validation rules
+  switch (platform) {
+    case 'tiktok':
+      // TikTok: Must be @username format, not /discover/, /video/, /tag/, /search/
+      if (urlLower.includes('/discover/') || 
+          urlLower.includes('/tag/') ||
+          urlLower.includes('/search/') ||
+          urlLower.includes('/video/') ||
+          urlLower.includes('/music/')) {
+        return { valid: false, reason: 'TikTok discovery/video/tag page, not official profile' };
+      }
+      // Must have @username pattern
+      if (!urlLower.match(/tiktok\.com\/@[a-z0-9_.]+$/i)) {
+        return { valid: false, reason: 'TikTok URL missing @username format' };
+      }
+      // Check if username relates to business
+      {
+        const ttMatch = urlLower.match(/tiktok\.com\/@([a-z0-9_.]+)/i);
+        if (ttMatch) {
+          const username = ttMatch[1].toLowerCase();
+          const hasBusinessWord = businessWords.some(w => username.includes(w));
+          if (!hasBusinessWord && businessWords.length > 0) {
+            return { valid: false, reason: `TikTok username '@${username}' doesn't match business name` };
+          }
+        }
+      }
+      break;
+
+    case 'instagram':
+      // Instagram: Must be /username format, not /p/, /reel/, /stories/, /explore/
+      if (urlLower.includes('/p/') || 
+          urlLower.includes('/reel/') ||
+          urlLower.includes('/reels/') ||
+          urlLower.includes('/stories/') ||
+          urlLower.includes('/explore/') ||
+          urlLower.includes('/tv/')) {
+        return { valid: false, reason: 'Instagram post/reel/story, not official profile' };
+      }
+      // Check if username relates to business
+      const igMatch = urlLower.match(/instagram\.com\/([a-z0-9_.]+)/i);
+      if (igMatch) {
+        const username = igMatch[1].toLowerCase();
+        const hasBusinessWord = businessWords.some(w => username.includes(w));
+        if (!hasBusinessWord && businessWords.length > 0) {
+          return { valid: false, reason: `Instagram username '${username}' doesn't match business name` };
+        }
+      }
+      break;
+
+    case 'facebook':
+      // Facebook: Avoid /posts/, /photos/, /videos/, /groups/...posts, /events/
+      if (urlLower.includes('/posts/') ||
+          urlLower.includes('/photos/') ||
+          urlLower.includes('/videos/') ||
+          urlLower.includes('/events/') ||
+          urlLower.match(/\/groups\/.*\/posts/)) {
+        return { valid: false, reason: 'Facebook post/photo/video/event, not official page' };
+      }
+      break;
+
+    case 'twitter':
+      // Twitter/X: Avoid /status/, /i/, /search/
+      if (urlLower.includes('/status/') ||
+          urlLower.includes('/i/') ||
+          urlLower.includes('/search/')) {
+        return { valid: false, reason: 'Twitter post/status, not official profile' };
+      }
+      break;
+
+    case 'linkedin':
+      // LinkedIn: Must be /company/ or /in/, not /posts/, /pulse/, /feed/
+      if (urlLower.includes('/posts/') ||
+          urlLower.includes('/pulse/') ||
+          urlLower.includes('/feed/')) {
+        return { valid: false, reason: 'LinkedIn post/article, not company page' };
+      }
+      // Prefer /company/ over personal profiles for businesses
+      if (!urlLower.includes('/company/') && urlLower.includes('/in/')) {
+        return { valid: false, reason: 'LinkedIn personal profile, not company page' };
+      }
+      break;
+
+    case 'youtube':
+      // YouTube: Must be /channel/, /c/, /user/, or /@, not /watch/, /shorts/
+      if (urlLower.includes('/watch') ||
+          urlLower.includes('/shorts/') ||
+          urlLower.includes('/playlist')) {
+        return { valid: false, reason: 'YouTube video/short/playlist, not channel' };
+      }
+      break;
+
+    case 'trustpilot':
+      // Trustpilot: Must be /review/ format
+      if (!urlLower.includes('/review/')) {
+        return { valid: false, reason: 'Trustpilot URL not a review page' };
+      }
+      // Filter out pagination URLs (?page=2, ?page=3, etc.)
+      if (urlLower.includes('?page=') || urlLower.includes('&page=')) {
+        return { valid: false, reason: 'Trustpilot pagination URL, not main review page' };
+      }
+      // Check domain in URL matches business somewhat
+      const tpMatch = urlLower.match(/trustpilot\.com\/review\/(www\.)?([a-z0-9.-]+)/i);
+      if (tpMatch) {
+        const reviewDomain = tpMatch[2].replace(/\.(com|co\.uk|net|org).*$/, '');
+        const hasMatch = businessWords.some(w => reviewDomain.includes(w)) ||
+                        reviewDomain.split(/[.-]/).some(part => businessWords.includes(part));
+        if (!hasMatch && businessWords.length > 0) {
+          return { valid: false, reason: `Trustpilot domain '${tpMatch[2]}' doesn't match business` };
+        }
+      }
+      break;
+
+    case 'tripadvisor':
+      // TripAdvisor: Should be Restaurant_Review or Hotel_Review or Attraction, not search
+      if (urlLower.includes('/search') ||
+          urlLower.includes('/tourism') ||
+          urlLower.includes('/restaurants-') && !urlLower.includes('restaurant_review')) {
+        return { valid: false, reason: 'TripAdvisor search/list page, not specific review' };
+      }
+      break;
+
+    case 'yelp':
+      // Yelp: Must be /biz/ format
+      if (!urlLower.includes('/biz/')) {
+        return { valid: false, reason: 'Yelp URL not a business page' };
+      }
+      // Yelp search pages
+      if (urlLower.includes('/search?') || urlLower.includes('find_desc=')) {
+        return { valid: false, reason: 'Yelp search page, not business page' };
+      }
+      break;
+
+    case 'checkatrade':
+      // Checkatrade: Must be /trades/ format
+      if (!urlLower.includes('/trades/')) {
+        return { valid: false, reason: 'Checkatrade URL not a trades page' };
+      }
+      // Filter search/category pages
+      if (urlLower.includes('/search') || urlLower.includes('/category/')) {
+        return { valid: false, reason: 'Checkatrade search/category page, not business page' };
+      }
+      // Check trader name in URL contains MOST business name words (stricter matching)
+      {
+        const traderSlug = urlLower.match(/\/trades\/([a-z0-9-]+)/i)?.[1] || '';
+        const matchingWords = businessWords.filter(w => traderSlug.includes(w));
+        // Require at least 2 matching words, or all words if only 1-2 words in business name
+        const requiredMatches = Math.max(1, Math.min(2, businessWords.length));
+        if (matchingWords.length < requiredMatches && businessWords.length > 0) {
+          return { valid: false, reason: `Checkatrade trader '${traderSlug}' doesn't match business name (${matchingWords.length}/${requiredMatches} words)` };
+        }
+      }
+      break;
+
+    case 'yell':
+      // Yell: Must be /biz/ format
+      if (!urlLower.includes('/biz/')) {
+        return { valid: false, reason: 'Yell URL not a business page' };
+      }
+      // Filter search pages
+      if (urlLower.includes('/search') || urlLower.includes('/s/')) {
+        return { valid: false, reason: 'Yell search page, not business page' };
+      }
+      // Check business name in URL (stricter matching)
+      {
+        const bizSlug = urlLower.match(/\/biz\/([a-z0-9-]+)/i)?.[1] || '';
+        const matchingWords = businessWords.filter(w => bizSlug.includes(w));
+        const requiredMatches = Math.max(1, Math.min(2, businessWords.length));
+        if (matchingWords.length < requiredMatches && businessWords.length > 0) {
+          return { valid: false, reason: `Yell business '${bizSlug}' doesn't match business name (${matchingWords.length}/${requiredMatches} words)` };
+        }
+      }
+      break;
+
+    case 'trustatrader':
+      // TrustATrader: Must be /traders/ format
+      if (!urlLower.includes('/traders/') && !urlLower.includes('/trader/')) {
+        return { valid: false, reason: 'TrustATrader URL not a trader page' };
+      }
+      // Check trader name in URL contains MOST business name words (stricter matching)
+      {
+        const traderSlug = urlLower.match(/\/traders?\/([a-z0-9-]+)/i)?.[1] || '';
+        const matchingWords = businessWords.filter(w => traderSlug.includes(w));
+        const requiredMatches = Math.max(1, Math.min(2, businessWords.length));
+        if (matchingWords.length < requiredMatches && businessWords.length > 0) {
+          return { valid: false, reason: `TrustATrader trader '${traderSlug}' doesn't match business name (${matchingWords.length}/${requiredMatches} words)` };
+        }
+      }
+      break;
+
+    case 'ratedpeople':
+      // RatedPeople: Must be /profile/ or /tradesman/ format
+      if (!urlLower.includes('/profile/') && !urlLower.includes('/tradesman/')) {
+        return { valid: false, reason: 'RatedPeople URL not a profile page' };
+      }
+      // Check profile name matches business (stricter matching)
+      {
+        const profileSlug = urlLower.match(/\/(profile|tradesman)\/([a-z0-9-]+)/i)?.[2] || '';
+        const matchingWords = businessWords.filter(w => profileSlug.includes(w));
+        const requiredMatches = Math.max(1, Math.min(2, businessWords.length));
+        if (matchingWords.length < requiredMatches && businessWords.length > 0) {
+          return { valid: false, reason: `RatedPeople profile '${profileSlug}' doesn't match business name (${matchingWords.length}/${requiredMatches} words)` };
+        }
+      }
+      break;
+
+    case 'feefo':
+      // Feefo: Must have reviews path
+      if (urlLower.includes('/search') || urlLower.includes('/category')) {
+        return { valid: false, reason: 'Feefo search/category page, not business page' };
+      }
+      break;
+
+    case 'reviews_io':
+      // Reviews.io: Must be /company-reviews/ format
+      if (!urlLower.includes('/company-reviews/')) {
+        return { valid: false, reason: 'Reviews.io URL not a company reviews page' };
+      }
+      break;
+  }
+
+  // General validation: Filter out any URL with pagination params
+  if (urlLower.includes('?page=') || urlLower.includes('&page=') ||
+      urlLower.includes('?start=') || urlLower.includes('&start=') ||
+      urlLower.includes('?offset=') || urlLower.includes('&offset=')) {
+    return { valid: false, reason: 'URL contains pagination parameters' };
+  }
+
+  return { valid: true };
+}
+
 function calculateConfidence(businessName: string, title?: string, snippet?: string): number {
   if (!title && !snippet) return 50;
   
   const text = `${title || ''} ${snippet || ''}`.toLowerCase();
   const cleanName = businessName
     .toLowerCase()
-    .replace(/\b(ltd|limited|inc|llc|plc)\b/gi, '')
+    .replace(/\b(ltd|limited|inc|llc|plc|uk|us)\b/gi, '')
     .trim();
   
   const nameWords = cleanName
     .split(/[\s,&-]+/)
-    .filter(word => word.length >= 3);
+    .filter(word => word.length >= 3)
+    .filter(word => !['the', 'and', 'for'].includes(word));
 
   if (nameWords.length === 0) return 50;
 
