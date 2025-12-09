@@ -297,25 +297,6 @@ async function verifyUrl(url: string, timeoutMs: number = 5000): Promise<boolean
 // Second-level verification: Check if the page content actually matches the business
 async function verifyUrlMatchesBusiness(url: string, businessName: string, timeoutMs: number = 5000): Promise<boolean> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
-
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) return false;
-    
-    const html = await response.text();
-    const htmlLower = html.toLowerCase();
-    
     // Clean business name - remove common suffixes and get core words
     const cleanName = businessName
       .toLowerCase()
@@ -329,20 +310,53 @@ async function verifyUrlMatchesBusiness(url: string, businessName: string, timeo
       .filter(word => !['the', 'and', 'for'].includes(word));
     
     if (nameWords.length === 0) return false;
+
+    // Helper to check if URL matches business name
+    const checkUrlMatch = () => {
+      const urlLower = url.toLowerCase();
+      const urlMatchCount = nameWords.filter(word => urlLower.includes(word)).length;
+      const urlMatchRatio = urlMatchCount / nameWords.length;
+      return urlMatchRatio >= 0.4;
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    // Check if at least 60% of significant words appear in the page
-    const matchCount = nameWords.filter(word => htmlLower.includes(word)).length;
-    const matchRatio = matchCount / nameWords.length;
+    let htmlLower = '';
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      
+      if (response.ok) {
+        const html = await response.text();
+        htmlLower = html.toLowerCase();
+      } else {
+        console.warn(`Verification fetch failed for ${url} (${response.status}), falling back to URL check`);
+      }
+    } catch (error) {
+      console.warn(`Verification network error for ${url}, falling back to URL check`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
     
-    // Also check URL itself for business name words
-    const urlLower = url.toLowerCase();
-    const urlMatchCount = nameWords.filter(word => urlLower.includes(word)).length;
-    const urlMatchRatio = urlMatchCount / nameWords.length;
+    // If we have HTML content, check it
+    if (htmlLower) {
+      // Check if at least 50% of significant words appear in the page
+      const matchCount = nameWords.filter(word => htmlLower.includes(word)).length;
+      const matchRatio = matchCount / nameWords.length;
+      
+      if (matchRatio >= 0.5) return true;
+    }
     
-    // Pass if either:
-    // 1. 40%+ of words found in page content, OR
-    // 2. 30%+ of words found in URL itself
-    return matchRatio >= 0.4 || urlMatchRatio >= 0.3;
+    // Fallback: Check URL itself for business name words
+    // This handles cases where scraping is blocked (403/429) or content is dynamic
+    return checkUrlMatch();
   } catch (error) {
     console.error('Error verifying URL matches business:', error);
     return false;
@@ -601,6 +615,14 @@ async function findUrlViaGoogleSearch(businessName: string, platform: string, ad
 
         for (const domain of domains) {
           if (link.includes(domain) && !link.includes('/search')) {
+            // Special handling for Facebook to avoid groups/posts
+            if (platform.toLowerCase() === 'facebook') {
+              if (link.includes('/groups/') || link.includes('/posts/') || link.includes('/photo.php') || link.includes('/permalink.php')) {
+                console.log(`Skipping Facebook group/post URL: ${link}`);
+                continue;
+              }
+            }
+
             // Clean URL (remove tracking params)
             const cleanUrl = (result.link || '').split('?')[0].split('#')[0];
             console.log(`Google Custom Search found ${platform}: ${cleanUrl}`);
@@ -615,6 +637,17 @@ async function findUrlViaGoogleSearch(businessName: string, platform: string, ad
       return null;
     }
   };
+
+  // Strategy 0: Site-specific search (most accurate)
+  const domains = platformDomains[platform.toLowerCase()];
+  if (domains && domains.length > 0) {
+    // Extract domain from the first pattern (e.g. "trustpilot.com/review/" -> "trustpilot.com")
+    const domain = domains[0].split('/')[0];
+    // Try with quoted business name first for exact match
+    let siteQuery = `site:${domain} "${businessName}" ${address || ''}`;
+    let result = await performSearch(siteQuery);
+    if (result) return result;
+  }
 
   // Strategy 1: Full search with address
   let result = await performSearch(`${businessName} ${platform} ${address || ''}`);
@@ -700,12 +733,6 @@ export async function GET(request: NextRequest) {
           reviewUrl: `${cleanUrl}/reviews`,
           verified: true 
         };
-      } else {
-        // Fallback to search URL
-        links.facebook = {
-          profileUrl: `https://www.facebook.com/search/top?q=${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -720,11 +747,6 @@ export async function GET(request: NextRequest) {
         links.instagram = { 
           profileUrl: instagramUrl, 
           verified: true 
-        };
-      } else {
-        links.instagram = {
-          profileUrl: `https://www.google.com/search?q=site:instagram.com+${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
@@ -741,11 +763,6 @@ export async function GET(request: NextRequest) {
           profileUrl: twitterUrl, 
           verified: true 
         };
-      } else {
-        links.twitter = {
-          profileUrl: `https://twitter.com/search?q=${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -760,11 +777,6 @@ export async function GET(request: NextRequest) {
         links.youtube = { 
           profileUrl: youtubeUrl, 
           verified: true 
-        };
-      } else {
-        links.youtube = {
-          profileUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
@@ -781,11 +793,6 @@ export async function GET(request: NextRequest) {
           profileUrl: tiktokUrl, 
           verified: true 
         };
-      } else {
-        links.tiktok = {
-          profileUrl: `https://www.tiktok.com/search?q=${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -800,11 +807,6 @@ export async function GET(request: NextRequest) {
         links.linkedin = { 
           profileUrl: linkedinUrl, 
           verified: true 
-        };
-      } else {
-        links.linkedin = {
-          profileUrl: `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
@@ -848,11 +850,8 @@ export async function GET(request: NextRequest) {
         reviewUrl: trustpilotUrl,
         verified: true,
       };
-    } else if (!links.trustpilot) {
-      links.trustpilot = {
-        profileUrl: `https://www.trustpilot.com/search?query=${encodeURIComponent(searchQuery)}`,
-        verified: false
-      };
+    } else {
+      delete links.trustpilot; // Remove if verification failed
     }
 
     // TripAdvisor - search for all businesses
@@ -870,11 +869,6 @@ export async function GET(request: NextRequest) {
           profileUrl: tripadvisorUrl,
           reviewUrl: tripadvisorUrl,
           verified: true,
-        };
-      } else {
-        links.tripadvisor = {
-          profileUrl: `https://www.tripadvisor.com/Search?q=${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
@@ -895,11 +889,6 @@ export async function GET(request: NextRequest) {
           reviewUrl: yelpUrl,
           verified: true,
         };
-      } else {
-        links.yelp = {
-          profileUrl: `https://www.yelp.com/search?find_desc=${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -916,11 +905,6 @@ export async function GET(request: NextRequest) {
           profileUrl: yellUrl,
           reviewUrl: yellUrl,
           verified: true,
-        };
-      } else {
-        links.yell = {
-          profileUrl: `https://www.yell.com/ucs/UcsSearchAction.do?keywords=${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
@@ -939,11 +923,6 @@ export async function GET(request: NextRequest) {
           reviewUrl: checkatradeUrl,
           verified: true,
         };
-      } else {
-        links.checkatrade = {
-          profileUrl: `https://www.checkatrade.com/Search?query=${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -961,11 +940,6 @@ export async function GET(request: NextRequest) {
           reviewUrl: ratedpeopleUrl,
           verified: true,
         };
-      } else {
-        links.ratedpeople = {
-          profileUrl: `https://www.ratedpeople.com/local/${encodeURIComponent(searchQuery)}`,
-          verified: false
-        };
       }
     }
 
@@ -982,11 +956,6 @@ export async function GET(request: NextRequest) {
           profileUrl: trustatraderUrl,
           reviewUrl: trustatraderUrl,
           verified: true,
-        };
-      } else {
-        links.trustatrader = {
-          profileUrl: `https://www.trustatrader.com/search?q=${encodeURIComponent(searchQuery)}`,
-          verified: false
         };
       }
     }
