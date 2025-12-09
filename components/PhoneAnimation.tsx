@@ -9,8 +9,8 @@ export default function PhoneAnimation() {
   useEffect(() => {
     const sequence = [
       // --- GOOGLE (0-12) ---
-      { time: 1500, next: 1 },  // 0: Load
-      { time: 500, next: 2 },   // 1: Wait
+      { time: 800, next: 1 },   // 0: Load
+      { time: 200, next: 2 },   // 1: Wait
       { time: 150, next: 3 },   // 2: 1 star
       { time: 150, next: 4 },   // 3: 2 stars
       { time: 150, next: 5 },   // 4: 3 stars
@@ -24,8 +24,8 @@ export default function PhoneAnimation() {
       { time: 2000, next: 13 }, // 12: Success
 
       // --- TRUSTPILOT (13-25) ---
-      { time: 1500, next: 14 }, // 13: Load
-      { time: 500, next: 15 },  // 14: Wait
+      { time: 800, next: 14 },  // 13: Load
+      { time: 200, next: 15 },  // 14: Wait
       { time: 150, next: 16 },  // 15: 1 star
       { time: 150, next: 17 },  // 16: 2 stars
       { time: 150, next: 18 },  // 17: 3 stars
@@ -38,24 +38,24 @@ export default function PhoneAnimation() {
       { time: 2000, next: 25 }, // 24: Success
 
       // --- INSTAGRAM (25-31) ---
-      { time: 1500, next: 26 }, // 25: Load
-      { time: 800, next: 27 },  // 26: Wait
+      { time: 800, next: 26 },  // 25: Load
+      { time: 200, next: 27 },  // 26: Wait
       { time: 200, next: 28 },  // 27: Press Follow
       { time: 800, next: 29 },  // 28: Loading state
       { time: 1500, next: 30 }, // 29: Following state
       { time: 500, next: 31 },  // 30: Success overlay (optional)
 
       // --- TIKTOK (31-37) ---
-      { time: 1500, next: 32 }, // 31: Load
-      { time: 800, next: 33 },  // 32: Wait
+      { time: 800, next: 32 },  // 31: Load
+      { time: 200, next: 33 },  // 32: Wait
       { time: 200, next: 34 },  // 33: Press Follow
       { time: 800, next: 35 },  // 34: Loading
       { time: 1500, next: 36 }, // 35: Following
       { time: 500, next: 37 },  // 36: Success
 
       // --- CHECKATRADE (37-49) ---
-      { time: 1500, next: 38 }, // 37: Load
-      { time: 500, next: 39 },  // 38: Wait
+      { time: 800, next: 38 },  // 37: Load
+      { time: 200, next: 39 },  // 38: Wait
       { time: 200, next: 40 },  // 39: Score 1
       { time: 200, next: 41 },  // 40: Score 2
       { time: 200, next: 42 },  // 41: Score 3
