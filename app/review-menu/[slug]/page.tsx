@@ -60,8 +60,8 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
   const appStoreLabel = menu.appStoreType === 'google_play' ? 'Google Play Store' : 'Apple App Store';
   const appStoreIcon = menu.appStoreType === 'google_play' ? '🤖' : '🍎';
 
-  // Separate Google from other platforms
-  const googlePlatform = menu.platforms.find(p => p.platformKey === 'google');
+  // Separate Google from other platforms (handle both 'google' and 'google-review' keys)
+  const googlePlatform = menu.platforms.find(p => p.platformKey === 'google' || p.platformKey === 'google-review' || p.platformKey.startsWith('google'));
   
   // Build satellites list
   const satellites: Array<{
@@ -78,7 +78,7 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
   // 1. Other platforms - prioritize Facebook, Instagram, TikTok, then others
   const platformPriority = ['facebook', 'instagram', 'tiktok', 'twitter', 'linkedin', 'tripadvisor', 'trustpilot', 'yelp', 'yell'];
   const sortedPlatforms = menu.platforms
-    .filter(p => p.platformKey !== 'google')
+    .filter(p => !p.platformKey.startsWith('google'))
     .sort((a, b) => {
       const aIndex = platformPriority.indexOf(a.platformKey);
       const bIndex = platformPriority.indexOf(b.platformKey);
@@ -149,9 +149,15 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
   }
 
   const renderListLayout = () => {
-    // Sort platforms: Google first, then Facebook, Instagram, TikTok, others
-    const platformPriorityList = ['google', 'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin', 'tripadvisor', 'trustpilot', 'yelp', 'yell'];
+    // Sort platforms: Google first (including google-review), then Facebook, Instagram, TikTok, others
+    const platformPriorityList = ['google', 'google-review', 'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin', 'tripadvisor', 'trustpilot', 'yelp', 'yell'];
     const sortedAllPlatforms = [...menu.platforms].sort((a, b) => {
+      // Handle google variants specially - any google-* should be first
+      const aIsGoogle = a.platformKey.startsWith('google');
+      const bIsGoogle = b.platformKey.startsWith('google');
+      if (aIsGoogle && !bIsGoogle) return -1;
+      if (!aIsGoogle && bIsGoogle) return 1;
+      
       const aIndex = platformPriorityList.indexOf(a.platformKey);
       const bIndex = platformPriorityList.indexOf(b.platformKey);
       const aPriority = aIndex === -1 ? 999 : aIndex;

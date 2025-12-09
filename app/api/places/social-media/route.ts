@@ -307,16 +307,30 @@ async function verifyUrlMatchesBusiness(url: string, businessName: string, timeo
     const nameWords = cleanName
       .split(/[\s,&-]+/)
       .filter(word => word.length >= 3)
-      .filter(word => !['the', 'and', 'for'].includes(word));
+      .filter(word => !['the', 'and', 'for', 'ltd', 'limited', 'inc', 'llc'].includes(word));
     
     if (nameWords.length === 0) return false;
+    
+    // The first significant word is usually the most important (brand name)
+    const primaryWord = nameWords[0];
 
-    // Helper to check if URL matches business name
+    // Helper to check if URL matches business name - STRICTER version
     const checkUrlMatch = () => {
       const urlLower = url.toLowerCase();
-      const urlMatchCount = nameWords.filter(word => urlLower.includes(word)).length;
-      const urlMatchRatio = urlMatchCount / nameWords.length;
-      return urlMatchRatio >= 0.4;
+      
+      // Must contain the primary word in URL
+      if (!urlLower.includes(primaryWord)) {
+        return false;
+      }
+      
+      // For multi-word names, need higher match
+      if (nameWords.length > 1) {
+        const urlMatchCount = nameWords.filter(word => urlLower.includes(word)).length;
+        const urlMatchRatio = urlMatchCount / nameWords.length;
+        return urlMatchRatio >= 0.6; // Stricter: 60% instead of 40%
+      }
+      
+      return true;
     };
 
     const controller = new AbortController();
@@ -345,13 +359,26 @@ async function verifyUrlMatchesBusiness(url: string, businessName: string, timeo
       clearTimeout(timeoutId);
     }
     
-    // If we have HTML content, check it
+    // If we have HTML content, check it - STRICTER verification
     if (htmlLower) {
-      // Check if at least 50% of significant words appear in the page
-      const matchCount = nameWords.filter(word => htmlLower.includes(word)).length;
-      const matchRatio = matchCount / nameWords.length;
+      // Must contain the primary/brand word
+      if (!htmlLower.includes(primaryWord)) {
+        console.log(`❌ Page missing primary word "${primaryWord}" for ${businessName}`);
+        return false;
+      }
       
-      if (matchRatio >= 0.5) return true;
+      // For multi-word names, check if at least 70% of significant words appear
+      if (nameWords.length > 1) {
+        const matchCount = nameWords.filter(word => htmlLower.includes(word)).length;
+        const matchRatio = matchCount / nameWords.length;
+        
+        if (matchRatio < 0.7) { // Stricter: 70% instead of 50%
+          console.log(`❌ Low match ratio (${(matchRatio * 100).toFixed(0)}%) for ${businessName} on ${url}`);
+          return false;
+        }
+      }
+      
+      return true;
     }
     
     // Fallback: Check URL itself for business name words
