@@ -29,8 +29,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const latitude = searchParams.get('latitude');
     const longitude = searchParams.get('longitude');
-    const radius = searchParams.get('radius') || '1500'; // Default 1500m for better coverage
+    const radius = searchParams.get('radius') || '1500'; // Used as max distance filter
     const keyword = searchParams.get('keyword') || '';
+    const rankBy = searchParams.get('rankby') || 'distance'; // Default to distance-based ranking
 
     if (!latitude || !longitude) {
       return NextResponse.json(
@@ -49,8 +50,23 @@ export async function GET(request: Request) {
 
     const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
     url.searchParams.append('location', `${latitude},${longitude}`);
-    url.searchParams.append('radius', radius);
-    if (keyword) url.searchParams.append('keyword', keyword);
+    
+    // Use rankby=distance for proximity-based results (requires type or keyword)
+    // Use radius for prominence-based results
+    if (rankBy === 'distance') {
+      url.searchParams.append('rankby', 'distance');
+      // When using rankby=distance, must specify type or keyword
+      if (keyword) {
+        url.searchParams.append('keyword', keyword);
+      } else {
+        // Use 'establishment' as broad type to get all businesses by distance
+        url.searchParams.append('type', 'establishment');
+      }
+    } else {
+      url.searchParams.append('radius', radius);
+      if (keyword) url.searchParams.append('keyword', keyword);
+    }
+    
     url.searchParams.append('key', apiKey);
 
     let allPlaces: any[] = [];
@@ -132,12 +148,18 @@ export async function GET(request: Request) {
 
     // Sort all places by distance (closest first)
     allPlaces.sort((a, b) => a.distance - b.distance);
+    
+    // Filter by max radius (rankby=distance doesn't have built-in radius limit)
+    const maxRadius = parseFloat(radius);
+    const filteredPlaces = allPlaces.filter(place => place.distance <= maxRadius);
 
     return NextResponse.json({
       success: true,
-      data: allPlaces,
-      count: allPlaces.length,
-      hasMore: !!nextPageToken
+      data: filteredPlaces,
+      count: filteredPlaces.length,
+      hasMore: !!nextPageToken,
+      rankBy: rankBy,
+      maxRadius: maxRadius
     });
   } catch (error) {
     console.error('Error searching places:', error);
