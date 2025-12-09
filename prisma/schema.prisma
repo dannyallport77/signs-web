@@ -379,3 +379,46 @@ model SmartLinkScan {
   @@index([timestamp])
 }
 
+// Pre-programmed NFC Tags (Tags with unique IDs that can be linked to businesses later)
+model PreprogrammedTag {
+  id              String   @id @default(cuid())
+  tagUid          String   @unique // Unique ID written to the NFC tag
+  slug            String   @unique // Short URL slug for redirect
+  status          String   @default("unlinked") // unlinked, linked, deactivated
+  
+  // Business info (filled when linked)
+  businessName    String?
+  businessAddress String?
+  placeId         String?
+  targetUrl       String?  // Review URL when linked
+  
+  // Tracking
+  programmedBy    String?  // User who programmed the tag
+  programmedAt    DateTime @default(now())
+  linkedAt        DateTime?
+  linkedBy        String?  // User who linked it to a business
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  scans           PreprogrammedTagScan[]
+  
+  @@index([status])
+  @@index([placeId])
+}
+
+model PreprogrammedTagScan {
+  id                  String   @id @default(cuid())
+  preprogrammedTagId  String
+  timestamp           DateTime @default(now())
+  userAgent           String?
+  ipAddress           String?
+  referrer            String?
+  wasLinked           Boolean  @default(false) // Was the tag linked at time of scan?
+  
+  tag                 PreprogrammedTag @relation(fields: [preprogrammedTagId], references: [id], onDelete: Cascade)
+  
+  @@index([preprogrammedTagId])
+  @@index([timestamp])
+}
+
