@@ -17,6 +17,30 @@ interface SocialMediaLinks {
   trustatrader?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
 }
 
+// Fetch place details to get website, phone, etc.
+async function fetchPlaceDetails(placeId: string, apiKey: string): Promise<{ website?: string; phone?: string } | null> {
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+    url.searchParams.append('place_id', placeId);
+    url.searchParams.append('fields', 'website,formatted_phone_number');
+    url.searchParams.append('key', apiKey);
+
+    const response = await fetch(url.toString());
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.result) {
+      return {
+        website: data.result.website,
+        phone: data.result.formatted_phone_number,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching place details:', error);
+    return null;
+  }
+}
+
 async function fetchSocialMediaLinks(
   businessName: string,
   address?: string,
@@ -97,6 +121,9 @@ export async function GET(request: Request) {
     // Transform results and optionally fetch social media links
     const places = await Promise.all(
       results.map(async (place: any) => {
+        // Fetch place details for website (Text Search doesn't return it)
+        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey);
+        
         const basePlace = {
           placeId: place.place_id,
           name: place.name,
@@ -105,7 +132,8 @@ export async function GET(request: Request) {
           rating: place.rating,
           userRatingsTotal: place.user_ratings_total,
           types: place.types,
-          website: place.website,
+          website: placeDetails?.website || null,
+          phone: placeDetails?.phone || null,
           // Generate Google Maps review URL (always included)
           reviewUrl: `https://search.google.com/local/writereview?placeid=${place.place_id}`,
           mapsUrl: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
