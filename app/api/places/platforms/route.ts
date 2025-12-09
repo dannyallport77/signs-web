@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findBusinessPlatforms, extractLinksFromWebsite, verifyUrl } from '@/lib/scrapers/review-platform-scraper';
+import { 
+  findBusinessPlatforms, 
+  findPlatformsForMany,
+  extractLinksFromWebsite, 
+  verifyUrl,
+  clearCache,
+  getCacheStats,
+  ScraperOptions
+} from '@/lib/scrapers/review-platform-scraper';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow up to 60 seconds for scraping
@@ -56,13 +64,26 @@ export async function GET(request: NextRequest) {
       if (process.env.SCRAPINGBEE_KEY) {
         options.scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
       }
+      if (process.env.HUNTER_API_KEY) {
+        options.hunterApiKey = process.env.HUNTER_API_KEY;
+      }
+      if (process.env.BING_API_KEY) {
+        options.bingApiKey = process.env.BING_API_KEY;
+      }
     }
+
+    // Enable caching and parallel requests
+    options.enableCache = true;
+    options.parallelRequests = true;
+    options.verifyUrls = true;
 
     // Find all platforms
     const platforms = await findBusinessPlatforms(businessName, options);
 
     // Count results
     const platformCount = Object.values(platforms).filter(p => p?.verified).length;
+    const totalFound = Object.keys(platforms).length;
+    const cacheStats = getCacheStats();
 
     return NextResponse.json(
       {
@@ -71,7 +92,11 @@ export async function GET(request: NextRequest) {
         website: website || null,
         address: address || null,
         platforms,
-        foundCount: platformCount,
+        stats: {
+          foundCount: totalFound,
+          verifiedCount: platformCount,
+          cacheSize: cacheStats.platforms,
+        },
         timestamp: new Date().toISOString(),
       },
       { status: 200 }
@@ -90,20 +115,21 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/places/platforms
- * Batch search for multiple businesses
+ * Batch search for multiple businesses (optimized with new batch function)
  * 
  * Request body:
  * {
  *   businesses: [
  *     { name: 'Business 1', website: 'https://...' },
  *     { name: 'Business 2' }
- *   ]
+ *   ],
+ *   clearCacheFirst?: boolean  // Optional: clear cache before searching
  * }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businesses } = body;
+    const { businesses, clearCacheFirst } = body;
 
     if (!Array.isArray(businesses) || businesses.length === 0) {
       return NextResponse.json(
@@ -112,62 +138,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optionally clear cache first
+    if (clearCacheFirst) {
+      clearCache();
+      console.log('🗑️ Cache cleared');
+    }
+
     console.log(`🔍 Batch searching ${businesses.length} businesses`);
 
-    const results = [];
+    // Build options with all API keys
+    const options: ScraperOptions = {
+      enableCache: true,
+      parallelRequests: true,
+      verifyUrls: true,
+    };
 
-    for (const business of businesses) {
-      if (!business.name) {
-        results.push({
-          ...business,
-          error: 'Missing business name',
-        });
-        continue;
-      }
-
-      try {
-        const options: Parameters<typeof findBusinessPlatforms>[1] = {
-          website: business.website,
-          address: business.address,
-        };
-
-        // Add API keys
-        if (process.env.GOOGLE_CSE_ID && process.env.GOOGLE_API_KEY) {
-          options.googleCseId = process.env.GOOGLE_CSE_ID;
-          options.googleApiKey = process.env.GOOGLE_API_KEY;
-        }
-        if (process.env.SEARCHAPI_KEY) {
-          options.searchApiKey = process.env.SEARCHAPI_KEY;
-        }
-        if (process.env.SERPAPI_KEY) {
-          options.serpApiKey = process.env.SERPAPI_KEY;
-        }
-
-        const platforms = await findBusinessPlatforms(business.name, options);
-
-        results.push({
-          name: business.name,
-          platforms,
-          success: true,
-        });
-
-        // Add delay between requests to be respectful
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        results.push({
-          ...business,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          success: false,
-        });
-      }
+    // Add API keys
+    if (process.env.GOOGLE_CSE_ID && process.env.GOOGLE_API_KEY) {
+      options.googleCseId = process.env.GOOGLE_CSE_ID;
+      options.googleApiKey = process.env.GOOGLE_API_KEY;
     }
+    if (process.env.SEARCHAPI_KEY) {
+      options.searchApiKey = process.env.SEARCHAPI_KEY;
+    }
+    if (process.env.SERPAPI_KEY) {
+      options.serpApiKey = process.env.SERPAPI_KEY;
+    }
+    if (process.env.HUNTER_API_KEY) {
+      options.hunterApiKey = process.env.HUNTER_API_KEY;
+    }
+    if (process.env.BING_API_KEY) {
+      options.bingApiKey = process.env.BING_API_KEY;
+    }
+
+    // Use new optimized batch function
+    const startTime = Date.now();
+    const results = await findPlatformsForMany(businesses, options);
+    const duration = Date.now() - startTime;
+
+    const successCount = results.filter(r => !r.error).length;
+    const cacheStats = getCacheStats();
 
     return NextResponse.json(
       {
         success: true,
         total: businesses.length,
-        processed: results.filter(r => r.success).length,
+        processed: successCount,
+        failed: businesses.length - successCount,
         results,
+        stats: {
+          durationMs: duration,
+          avgPerBusiness: Math.round(duration / businesses.length),
+          cacheSize: cacheStats.platforms,
+        },
         timestamp: new Date().toISOString(),
       },
       { status: 200 }
@@ -177,6 +200,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to process batch search',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/places/platforms
+ * Clear the platform cache
+ * 
+ * Example:
+ * DELETE /api/places/platforms
+ */
+export async function DELETE() {
+  try {
+    const statsBefore = getCacheStats();
+    clearCache();
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Cache cleared',
+      clearedEntries: {
+        platforms: statsBefore.platforms,
+        urls: statsBefore.urls,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Failed to clear cache',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
