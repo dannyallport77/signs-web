@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
-import nodemailer from 'nodemailer';
+// Outbound email will be sent via Resend API
 
 export async function POST(request: Request) {
   try {
@@ -25,13 +25,13 @@ export async function POST(request: Request) {
     }
 
     // Calculate totals
-    const invoiceItems = items.map((item: any) => ({
-      productId: 'custom-item', // Placeholder for custom items
-      productName: item.name,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.quantity * item.unitPrice,
-    }));
+      const invoiceItems = items.map((item: any) => ({
+        productId: item.productId || 'custom-item',
+        productName: item.productName || item.name || 'Custom Item',
+        quantity: Number(item.quantity ?? 1),
+        unitPrice: Number(item.unitPrice ?? 0),
+        totalPrice: Number(item.quantity ?? 1) * Number(item.unitPrice ?? 0),
+      }));
 
     const totalAmount = invoiceItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
 
@@ -71,23 +71,15 @@ export async function POST(request: Request) {
       showPaidStamp: false // Default to false for new invoices
     });
 
-    // Send email - don't fail if it doesn't work, similar to mobile endpoint
+    // Send email via Resend - don't fail request if it errors
     try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: parseInt(process.env.EMAIL_PORT || '587'),
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD,
-        },
-      });
+      const apiKey = process.env.RESEND_API_KEY;
+      if (!apiKey) {
+        throw new Error('RESEND_API_KEY not set');
+      }
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'invoices@review-signs.co.uk',
-        to: customerEmail,
-        subject: `Invoice ${invoice.invoiceNumber} - Review Signs`,
-        html: `
+      const from = process.env.EMAIL_FROM || 'invoices@review-signs.co.uk';
+      const html = `
           <h2>Hello ${customerName},</h2>
           <p>Please find your invoice attached.</p>
           <p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p>
@@ -98,27 +90,40 @@ export async function POST(request: Request) {
           </ul>
           <p>Thank you for your business!</p>
           <p>Best regards,<br/><strong>Review Signs Team</strong></p>
-          <!-- Tracking pixel for email opens -->
-          <img src="${process.env.NEXTAUTH_URL || 'https://review-signs.co.uk'}/api/invoices/track/${invoice.trackingToken}" width="1" height="1" alt="" style="display:none;" />
-        `,
-        attachments: [
-          {
-            filename: `${invoice.invoiceNumber}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-          },
-        ],
+        `;
+
+      const attachment = {
+        filename: `${invoice.invoiceNumber}.pdf`,
+        content: pdfBuffer.toString('base64'),
+      };
+
+      const resp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: customerEmail,
+          subject: `Invoice ${invoice.invoiceNumber} - Review Signs`,
+          html,
+          attachments: [attachment],
+        }),
       });
 
-      // Update invoice status to sent
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { status: 'sent', sentAt: new Date() },
-      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        console.error('Resend email send failed:', resp.status, text);
+      } else {
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: { status: 'sent', sentAt: new Date() },
+        });
+      }
     } catch (emailError) {
-      console.error('Failed to send invoice email, but invoice was created:', emailError);
+      console.error('Failed to send invoice email (Resend), but invoice was created:', emailError);
       // Don't fail the entire request if email fails
-      // Invoice is still created and can be accessed later
     }
 
     return NextResponse.json({ 

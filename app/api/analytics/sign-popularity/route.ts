@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = (payload.role || '').toLowerCase();
+
     const signPopularity = await prisma.$queryRaw`
       SELECT
         st.name as sign_type,
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
       FROM transactions t
       JOIN sign_types st ON t.sign_type_id = st.id
       WHERE t.status = 'success'
-        ${payload.role !== 'admin' ? Prisma.sql`AND t.user_id = ${payload.userId}` : Prisma.sql``}
+        ${role !== 'admin' ? Prisma.sql`AND t.user_id = ${payload.userId}` : Prisma.sql``}
       GROUP BY st.id, st.name
       ORDER BY quantity DESC
     `;

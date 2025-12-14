@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 interface InvoiceOpen {
   openedAt: string;
@@ -32,11 +33,17 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Sorting and Filtering State
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>({ key: 'sentAt', direction: 'desc' });
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const { data: session } = useSession();
+  const isAdmin = useMemo(() => ((session?.user as any)?.role || '').toLowerCase() === 'admin', [session]);
 
   useEffect(() => {
     fetchInvoices();
@@ -122,6 +129,55 @@ export default function InvoicesPage() {
       return 0;
     });
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const allVisibleSelected = useMemo(() => {
+    const visibleIds = sortedAndFilteredInvoices.map((i) => i.id);
+    return visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  }, [sortedAndFilteredInvoices, selectedIds]);
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = sortedAndFilteredInvoices.map((i) => i.id);
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!isAdmin) return;
+    if (selectedIds.length === 0) return;
+
+    const confirmed = window.confirm(`Delete ${selectedIds.length} invoice(s)? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch('/api/invoices', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete invoices');
+      }
+
+      setInvoices((prev) => prev.filter((inv) => !selectedIds.includes(inv.id)));
+      setSelectedIds([]);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete invoices');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const SortIcon = ({ columnKey }: { columnKey: keyof Invoice }) => {
     if (sortConfig?.key !== columnKey) {
       return <span className="ml-1 text-gray-400">↕</span>;
@@ -139,13 +195,58 @@ export default function InvoicesPage() {
             Track all issued invoices with email open tracking
           </p>
         </div>
-        <Link
-          href="/dashboard/invoices/create"
-          className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-medium shadow-sm transition-colors"
-        >
-          + Create Invoice
-        </Link>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowDemoModal(true)}
+              className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium shadow-sm transition-colors"
+            >
+              Preview Demo PDF
+            </button>
+            <select
+              aria-label="Demo preset"
+              onChange={(e) => {
+                const preset = e.target.value;
+                // Update iframe src if modal is open
+                const iframe = document.querySelector<HTMLIFrameElement>('iframe[title="Demo Invoice PDF"]');
+                if (iframe) iframe.src = `/api/invoices/demo/pdf?preset=${preset}`;
+              }}
+              className="border border-gray-300 rounded-md text-sm px-2 py-2 bg-white"
+              defaultValue="default"
+            >
+              <option value="default">Default</option>
+              <option value="long-names">Long Names</option>
+              <option value="many-items">Many Items</option>
+              <option value="paid">Paid Stamp</option>
+            </select>
+          </div>
+          <Link
+            href="/dashboard/invoices/create"
+            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-medium shadow-sm transition-colors"
+          >
+            + Create Invoice
+          </Link>
+        </div>
       </div>
+
+      {isAdmin && (
+        <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div className="text-sm text-gray-700">
+            {selectedIds.length} selected
+          </div>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.length === 0 || deleting}
+            className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
+              selectedIds.length === 0 || deleting
+                ? 'bg-red-200 text-red-700 cursor-not-allowed'
+                : 'bg-red-600 text-white hover:bg-red-700'
+            }`}
+          >
+            {deleting ? 'Deleting...' : 'Delete Selected'}
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -246,6 +347,17 @@ export default function InvoicesPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  {isAdmin && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAllVisible}
+                        aria-label="Select all visible invoices"
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
+                    </th>
+                  )}
                   <th 
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('invoiceNumber')}
@@ -310,6 +422,17 @@ export default function InvoicesPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {sortedAndFilteredInvoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(invoice.id)}
+                          onChange={() => toggleSelect(invoice.id)}
+                          aria-label={`Select invoice ${invoice.invoiceNumber}`}
+                          className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                        />
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium text-gray-900">
                         {invoice.invoiceNumber}
@@ -553,6 +676,32 @@ export default function InvoicesPage() {
                 src={`/api/invoices/${selectedInvoice.id}/pdf`}
                 className="w-full h-full rounded shadow-lg bg-white"
                 title={`Invoice ${selectedInvoice.invoiceNumber}`}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demo PDF Modal */}
+      {showDemoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">Demo Invoice PDF</h3>
+              <button
+                onClick={() => setShowDemoModal(false)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 bg-gray-100 p-4 overflow-hidden">
+              <iframe
+                src={`/api/invoices/demo/pdf?preset=default`}
+                className="w-full h-full rounded shadow-lg bg-white"
+                title={`Demo Invoice PDF`}
               />
             </div>
           </div>

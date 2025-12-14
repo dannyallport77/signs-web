@@ -92,34 +92,29 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         doc.strokeOpacity(1);
       }
 
-      // Draw Vector Logo (Grayscale/Monochrome as requested)
-      doc.save();
-      doc.translate(40, 35);
-      doc.scale(0.4); // Scale down 100x100 SVG to 40x40 approx
-
-      // Circle
-      doc.circle(50, 50, 45)
-         .lineWidth(8)
-         .strokeColor('#e5e7eb') // Light gray
-         .stroke();
+      // Company logo in top right
+      const logoSize = 60;
+      const logoX = 555 - logoSize; // Right aligned
+      const logoY = 40;
       
-      // Swoosh
-      doc.path('M 20 55 Q 50 80 80 45')
-         .lineWidth(8)
-         .lineCap('round')
-         .strokeColor('#9ca3af') // Medium gray
-         .stroke();
+      const logoCandidates = [
+        path.join(process.cwd(), 'public', 'logo.png'),
+        path.join(process.cwd(), 'public', 'brand-logos', 'logo.png'),
+        path.join(process.cwd(), 'public', 'icon.png'),
+      ];
       
-      // Paper Plane
-      doc.path('M 30 60 L 75 25 L 55 75 L 45 55 Z')
-         .fillColor('#4b5563') // Dark gray
-         .fill();
-      
-      doc.restore();
+      const companyLogoPath = logoCandidates.find((p) => fs.existsSync(p));
+      if (companyLogoPath) {
+        try {
+          doc.image(companyLogoPath, logoX, logoY, { fit: [logoSize, logoSize] });
+        } catch (e) {
+          console.warn('[invoiceGenerator] Failed to load company logo, using text fallback');
+        }
+      }
 
       // Header Section with Branding
       const headerY = 50;
-      const textX = 100; // Moved right to accommodate logo
+      const textX = 40;
 
       doc.fontSize(28).font('Helvetica-Bold').fillColor(primaryColor);
       doc.text('INVOICE', textX, headerY);
@@ -170,8 +165,9 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.moveDown(0.4);
       doc.text(data.customerName, rightX);
 
-      // Reset to left column for items
-      doc.moveDown(2);
+      // Ensure the table starts below both columns (avoid overlap when names are long)
+      const afterDetailsY = Math.max(doc.y, detailsY + 60);
+      doc.y = afterDetailsY + 12;
 
       // Items Table Header with background
       const tableTopY = doc.y;
@@ -231,130 +227,110 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
       doc.fontSize(16).font('Helvetica-Bold');
       doc.text(`£${data.totalAmount.toFixed(2)}`, 320, totalY, { width: 215, align: 'right' });
 
-      // Marketing Section
-      doc.moveDown(1.5);
-      
-      const marketingY = doc.y;
-      
-      // Marketing Header
-      doc.fontSize(11).font('Helvetica-Bold').fillColor(primaryColor);
-      doc.text('DID YOU KNOW?', 40, marketingY);
-      doc.strokeColor(accentColor).lineWidth(1);
-      doc.moveTo(40, marketingY + 12).lineTo(190, marketingY + 12).stroke();
-
-      // Marketing Grid
-      const startY = marketingY + 25;
-      const col1X = 70;
-      const col2X = 320;
-      const icon1X = 40;
-      const icon2X = 290;
-      
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
-      
-      // Item 1: Google Reviews
-      // Icon: Star
-      doc.save();
-      doc.translate(icon1X + 10, startY + 5);
-      doc.scale(0.8);
-      doc.path('M 0 -10 L 2.5 -3 L 10 -3 L 4 1 L 6 8 L 0 4 L -6 8 L -4 1 L -10 -3 L -2.5 -3 Z')
-         .fillColor(primaryColor).fill();
-      doc.restore();
-
-      doc.text('Boost Google Reviews', col1X, startY);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280'); // Reduced font size
-      doc.text('Get more 5-star reviews on Google with a single tap! Our smart signs make it easy for customers to share their experience.', col1X, startY + 12, { width: 210 });
-
-      // Item 2: WiFi Signs
-      // Icon: WiFi
-      doc.save();
-      doc.translate(icon2X + 10, startY + 8);
-      doc.lineWidth(2).strokeColor(primaryColor);
-      doc.circle(0, 0, 1).fillColor(primaryColor).fill();
-      doc.path('M -4 -4 Q 0 -8 4 -4').stroke();
-      doc.path('M -8 -8 Q 0 -16 8 -8').stroke();
-      doc.restore();
-
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
-      doc.text('Instant Wi-Fi Access', col2X, startY);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
-      doc.text('Help customers connect instantly. No more typing long passwords - just tap to connect!', col2X, startY + 12, { width: 210 });
-
-      const row2Y = startY + 60;
-
-      // Item 3: Menu Tags
-      // Icon: Menu
-      doc.save();
-      doc.translate(icon1X + 10, row2Y + 5);
-      doc.lineWidth(1.5).strokeColor(primaryColor);
-      doc.rect(-8, -10, 16, 20).stroke();
-      doc.moveTo(-4, -5).lineTo(4, -5).stroke();
-      doc.moveTo(-4, 0).lineTo(4, 0).stroke();
-      doc.moveTo(-4, 5).lineTo(4, 5).stroke();
-      doc.restore();
-
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
-      doc.text('Digital Menu Tags', col1X, row2Y);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
-      doc.text('Perfect for restaurants! Place NFC tags on tables to instantly display your menu on customers\' phones.', col1X, row2Y + 12, { width: 210 });
-
-      // Item 4: Key Rings
-      // Icon: Key Ring
-      doc.save();
-      doc.translate(icon2X + 10, row2Y + 5);
-      doc.lineWidth(2).strokeColor(primaryColor);
-      doc.circle(0, 0, 8).stroke();
-      doc.circle(0, -6, 2).fillColor(primaryColor).fill();
-      doc.restore();
-
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
-      doc.text('Smart Key Rings', col2X, row2Y);
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
-      doc.text('Carry your review link everywhere. Durable, stylish NFC key rings for business on the go.', col2X, row2Y + 12, { width: 210 });
-
-      // Special Offer Box
-      doc.moveDown(1.5);
-      const offerBoxY = doc.y;
-      doc.fillColor('#f0fdf4'); // Light green background
-      doc.rect(40, offerBoxY, 515, 40).fill();
-      doc.strokeColor('#16a34a').lineWidth(1); // Green border
-      doc.rect(40, offerBoxY, 515, 40).stroke();
-
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#15803d'); // Dark green text
-      doc.text('SPECIAL OFFER: Get 10% off your next order of Multi-Platform Signs!', 40, offerBoxY + 8, { align: 'center', width: 515 });
-      doc.moveDown(0.3);
-      doc.fontSize(8).font('Helvetica').text('Use code: UPGRADE10', 40, doc.y, { align: 'center', width: 515 });
-
-      // Footer & Logos
-      // Calculate available space
+      // Position logos and footer at bottom of page
       const pageHeight = 841.89; // A4 height in points
-      const footerHeight = 120; // Increased footer height to move it up
-      const footerTop = pageHeight - footerHeight; 
+      const bottomMargin = 40;
+      const logoHeight = 22;
+      const logoWidth = 50;
+      const gap = 8;
+      const availableWidth = 555 - 40;
+      const logosPerRow = Math.floor((availableWidth + gap) / (logoWidth + gap));
       
-      // Platform Logos Section
-      const logoY = footerTop - 30;
-      const centerX = 300;
+      const logos = [
+        { name: 'Google', file: 'google.png' },
+        { name: 'Facebook', file: 'facebook.png' },
+        { name: 'Instagram', file: 'instagram.png' },
+        { name: 'Checkatrade', file: 'checkatrade.png' },
+        { name: 'TrustATrader', file: 'trustatrader.png' },
+        { name: 'RatedPeople', file: 'ratedpeople.png' },
+        { name: 'Trustpilot', file: 'trustpilot.png' },
+        { name: 'Tripadvisor', file: 'tripadvisor.png' },
+        { name: 'TikTok', file: 'tiktok.png' },
+      ];
 
-      doc.save();
+      const brandColors: Record<string, string> = {
+        Google: '#4285F4',
+        Facebook: '#1877F2',
+        Instagram: '#E1306C',
+        Checkatrade: '#00A7E0',
+        TrustATrader: '#1B75BB',
+        RatedPeople: '#00A88F',
+        Trustpilot: '#00B67A',
+        Tripadvisor: '#34E0A1',
+        TikTok: '#000000',
+      };
+
+      // Calculate space needed
+      const numRows = Math.ceil(logos.length / logosPerRow);
+      const rowSpacing = 6;
+      const totalLogosHeight = numRows * logoHeight + (numRows - 1) * rowSpacing;
+      const footerTextHeight = 45; // Space for 4 lines of footer text
+      const totalBottomHeight = totalLogosHeight + footerTextHeight + 10; // 10pt gap between logos and footer
       
-      // Google Logo (Center) - Solid Fill
-      doc.translate(centerX - 12, logoY + 5); // Centered (24px width / 2)
-      doc.scale(1.0); 
-      doc.path('M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z')
-         .fillColor('#4b5563').fill();
-      doc.restore();
+      // Start logos this far from bottom
+      const logosStartY = pageHeight - bottomMargin - totalBottomHeight;
 
-      // Footer Background
-      doc.fillColor('#f9fafb'); // Very light gray
-      doc.rect(0, footerTop, 600, footerHeight + 40).fill(); // Extend background to bottom
+      logos.forEach((logo, idx) => {
+        const row = Math.floor(idx / logosPerRow);
+        const col = idx % logosPerRow;
+        
+        // Center each row
+        const logosInThisRow = Math.min(logosPerRow, logos.length - row * logosPerRow);
+        const rowWidth = logosInThisRow * logoWidth + (logosInThisRow - 1) * gap;
+        const rowStartX = 40 + (availableWidth - rowWidth) / 2;
+        
+        const x = rowStartX + col * (logoWidth + gap);
+        const y = logosStartY + row * (logoHeight + rowSpacing);
+        
+        const candidates = [
+          path.join(process.cwd(), 'public/brand-logos', logo.file),
+          path.join(process.cwd(), 'public/platform-logos', logo.file),
+          path.join(process.cwd(), '..', 'signs-mobile', 'assets', 'platform-logos', logo.file),
+        ];
+        const imagePath = candidates.find((p) => fs.existsSync(p));
+        if (imagePath) {
+          console.log(`[invoiceGenerator] Using logo file for ${logo.name}: ${path.relative(process.cwd(), imagePath)}`);
+        } else {
+          console.warn(`[invoiceGenerator] Missing logo file for ${logo.name}. Checked: ${candidates.map(c => path.relative(process.cwd(), c)).join(', ')}`);
+        }
+        if (imagePath) {
+          try {
+            // Center image vertically and horizontally within the box
+            doc.image(imagePath, x, y, { 
+              fit: [logoWidth, logoHeight],
+              align: 'center',
+              valign: 'center'
+            });
+            return;
+          } catch (e) {
+            console.warn(`[invoiceGenerator] Failed to render image for ${logo.name} at ${path.relative(process.cwd(), imagePath)}. Falling back to badge.`, e instanceof Error ? e.message : e);
+            // fall through to fallback badge
+          }
+        }
 
-      // Footer Text
-      doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor);
-      doc.text('Review Signs', 0, footerTop + 20, { align: 'center' });
+        // Fallback: visible brand badge - vertically centered
+        const color = brandColors[logo.name] || '#374151';
+        doc.roundedRect(x, y, logoWidth, logoHeight, 4)
+           .fillColor('#ffffff')
+           .strokeColor(color)
+           .lineWidth(1.5)
+           .stroke();
+        doc.fillColor(color)
+           .font('Helvetica-Bold')
+           .fontSize(7)
+           .text(logo.name, x + 2, y + 7.5, { width: logoWidth - 4, align: 'center' });
+      });
+
+      // Footer text below logos
+      const footerStartY = logosStartY + totalLogosHeight + 10;
       
-      doc.fontSize(8).font('Helvetica').fillColor('#6b7280');
-      doc.text('Professional NFC Review Tag Systems', 0, footerTop + 35, { align: 'center' });
-      doc.text('Web: www.review-signs.co.uk | Email: invoices@review-signs.co.uk', 0, footerTop + 50, { align: 'center' });
-      doc.text('© 2025 Review Signs. All rights reserved.', 0, footerTop + 65, { align: 'center' });
+      doc.fontSize(8).font('Helvetica-Bold').fillColor(textColor);
+      doc.text('Review Signs', 40, footerStartY, { align: 'center', width: 515 });
+      
+      doc.fontSize(7).font('Helvetica').fillColor('#6b7280');
+      doc.text('Professional NFC Review Tag Systems', 40, footerStartY + 12, { align: 'center', width: 515 });
+      doc.text('www.review-signs.co.uk | invoices@review-signs.co.uk', 40, footerStartY + 24, { align: 'center', width: 515 });
+      doc.text('© 2025 Review Signs. All rights reserved.', 40, footerStartY + 36, { align: 'center', width: 515 });
 
       doc.end();
     } catch (error) {

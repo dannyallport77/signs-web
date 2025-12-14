@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = (payload.role || '').toLowerCase();
+
     const userPerformance = await prisma.$queryRaw`
       SELECT
         u.id as user_id,
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
       FROM users u
       LEFT JOIN transactions t ON u.id = t.user_id
       WHERE u.active = true
-        ${payload.role !== 'admin' ? Prisma.sql`AND u.id = ${payload.userId}` : Prisma.sql``}
+        ${role !== 'admin' ? Prisma.sql`AND u.id = ${payload.userId}` : Prisma.sql``}
       GROUP BY u.id, u.name
       ORDER BY total_revenue DESC
     `;

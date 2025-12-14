@@ -422,3 +422,25 @@ model PreprogrammedTagScan {
   @@index([timestamp])
 }
 
+// Email Inbox
+model Email {
+  id          String   @id @default(cuid())
+  from        String   // Sender email address
+  fromName    String?  // Sender name
+  to          String   // Recipient email address
+  subject     String
+  textBody    String?  @db.Text // Plain text body
+  htmlBody    String?  @db.Text // HTML body
+  isRead      Boolean  @default(false)
+  isStarred   Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  attachments Json?    // Array of attachment metadata
+  headers     Json?    // Email headers
+  receivedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@index([isRead])
+  @@index([isArchived])
+  @@index([receivedAt])
+}
+

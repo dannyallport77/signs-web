@@ -26,6 +26,8 @@ export async function PUT(
       );
     }
 
+    const role = (payload.role || '').toLowerCase();
+
     const { id } = await params;
     const body = await request.json();
 
@@ -42,7 +44,7 @@ export async function PUT(
     }
 
     // Check permissions - users can only update their own transactions
-    if (payload.role !== 'admin' && existingTransaction.userId !== payload.userId) {
+    if (role !== 'admin' && existingTransaction.userId !== payload.userId) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }

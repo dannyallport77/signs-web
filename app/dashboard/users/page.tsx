@@ -199,7 +199,7 @@ export default function UsersPage() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Admins</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {users.filter(u => u.role === 'admin').length}
+                {users.filter(u => (u.role || '').toLowerCase() === 'admin').length}
               </p>
             </div>
           </div>
@@ -264,15 +264,21 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'admin' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : user.role === 'manager'
+                      {(() => {
+                        const role = (user.role || '').toLowerCase();
+                        const label = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Unknown';
+                        const badgeClass = role === 'admin'
+                          ? 'bg-purple-100 text-purple-800'
+                          : role === 'manager'
                           ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                      </span>
+                          : 'bg-gray-100 text-gray-800';
+
+                        return (
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button

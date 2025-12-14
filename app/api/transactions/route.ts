@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const role = (payload.role || '').toLowerCase();
+
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     if (status) where.status = status;
 
     // If not admin, only show user's own transactions
-    if (payload.role !== 'admin') {
+    if (role !== 'admin') {
       where.userId = payload.userId;
     }
 

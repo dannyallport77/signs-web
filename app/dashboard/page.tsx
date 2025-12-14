@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import CachingSettings from './components/CachingSettings';
+import { useRouter } from 'next/navigation';
 
 interface Transaction {
   id: string;
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('30d');
+  const router = useRouter();
 
   useEffect(() => {
     fetchDashboard();
@@ -123,6 +125,7 @@ export default function DashboardPage() {
           icon="📊"
           color="blue"
           subtitle={`${stats.todaysSales} today`}
+          onClick={() => router.push('/dashboard/invoices')}
         />
         <MetricCard
           title="Total Revenue"
@@ -130,6 +133,7 @@ export default function DashboardPage() {
           icon="💰"
           color="green"
           subtitle={`£${stats.todaysRevenue.toFixed(2)} today`}
+          onClick={() => router.push('/dashboard/invoices')}
         />
         <MetricCard
           title="Failed Sales"
@@ -137,24 +141,28 @@ export default function DashboardPage() {
           icon="⚠️"
           color="red"
           subtitle={`${((stats.failedSales / (stats.totalSales + stats.failedSales)) * 100).toFixed(1)}% failure rate`}
+          onClick={() => router.push('/dashboard/invoices')}
         />
         <MetricCard
           title="Active Users"
           value={stats.activeUsers}
           icon="👥"
           color="purple"
+          onClick={() => router.push('/dashboard/users')}
         />
         <MetricCard
           title="Avg Sale Value"
           value={`£${(stats.totalRevenue / stats.totalSales || 0).toFixed(2)}`}
           icon="📈"
           color="indigo"
+          onClick={() => router.push('/dashboard/invoices')}
         />
         <MetricCard
           title="Success Rate"
           value={`${((stats.totalSales / (stats.totalSales + stats.failedSales)) * 100).toFixed(1)}%`}
           icon="✅"
           color="teal"
+          onClick={() => router.push('/dashboard/invoices')}
         />
       </div>
 
@@ -303,9 +311,10 @@ interface MetricCardProps {
   icon: string;
   color: 'blue' | 'red' | 'green' | 'purple' | 'indigo' | 'teal';
   subtitle?: string;
+  onClick?: () => void;
 }
 
-function MetricCard({ title, value, icon, color, subtitle }: MetricCardProps) {
+function MetricCard({ title, value, icon, color, subtitle, onClick }: MetricCardProps) {
   const colorClasses = {
     blue: 'from-blue-500 to-blue-600',
     red: 'from-red-500 to-red-600',
@@ -315,8 +324,16 @@ function MetricCard({ title, value, icon, color, subtitle }: MetricCardProps) {
     teal: 'from-teal-500 to-teal-600',
   };
 
+  const Wrapper = onClick ? 'button' : 'div';
+
   return (
-    <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow">
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`bg-white p-6 rounded-xl shadow-lg border border-gray-200 transition-shadow text-left w-full ${
+        onClick ? 'hover:shadow-xl focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer' : ''
+      }`}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className={`p-3 rounded-lg bg-gradient-to-br ${colorClasses[color]} text-white text-2xl`}>
           {icon}
@@ -325,7 +342,7 @@ function MetricCard({ title, value, icon, color, subtitle }: MetricCardProps) {
       <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
       <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
       {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-    </div>
+    </Wrapper>
   );
 }
 
