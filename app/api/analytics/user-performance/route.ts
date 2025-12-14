@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const role = (payload.role || '').toLowerCase();
+    const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+    const userId = typeof payload.userId === 'string' ? payload.userId : undefined;
 
     const userPerformance = await prisma.$queryRaw`
       SELECT
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       FROM users u
       LEFT JOIN transactions t ON u.id = t.user_id
       WHERE u.active = true
-        ${role !== 'admin' ? Prisma.sql`AND u.id = ${payload.userId}` : Prisma.sql``}
+        ${role !== 'admin' && userId ? Prisma.sql`AND u.id = ${userId}` : Prisma.sql``}
       GROUP BY u.id, u.name
       ORDER BY total_revenue DESC
     `;

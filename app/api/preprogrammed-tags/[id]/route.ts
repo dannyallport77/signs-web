@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // GET - Get a specific preprogrammed tag by ID or slug
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     
     // Try to find by ID, slug, or tagUid
     const tag = await prisma.preprogrammedTag.findFirst({
@@ -53,11 +53,11 @@ export async function GET(
 
 // PATCH - Link a preprogrammed tag to a business
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
     const { 
       businessName, 
@@ -145,11 +145,11 @@ export async function PATCH(
 
 // DELETE - Deactivate/delete a preprogrammed tag
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     
     const existingTag = await prisma.preprogrammedTag.findFirst({
       where: {

@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
     const buffer = await generateInvoicePDF(data);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline; filename="invoice-demo.pdf"',

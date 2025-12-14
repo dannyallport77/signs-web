@@ -23,21 +23,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const role = (payload.role || '').toLowerCase();
+    const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+    const userId = typeof payload.userId === 'string' ? payload.userId : undefined;
 
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
-
-    const whereClause = {
-      status: 'success',
-      createdAt: {
-        gte: startDate
-      },
-      ...(role !== 'admin' && { userId: payload.userId })
-    };
 
     const salesTrend = await prisma.$queryRaw`
       SELECT
@@ -47,7 +40,7 @@ export async function GET(request: NextRequest) {
       FROM transactions
       WHERE status = 'success'
         AND created_at >= ${startDate}
-        ${role !== 'admin' ? Prisma.sql`AND user_id = ${payload.userId}` : Prisma.sql``}
+        ${role !== 'admin' && userId ? Prisma.sql`AND user_id = ${userId}` : Prisma.sql``}
       GROUP BY DATE(created_at)
       ORDER BY DATE(created_at)
     `;

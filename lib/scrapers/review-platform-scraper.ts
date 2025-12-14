@@ -1602,7 +1602,6 @@ export function getCacheStats(): { platforms: number; urls: number } {
 export {
   SimpleCache,
   RateLimiter,
-  ScraperError,
   platformCache,
   urlVerificationCache,
 };

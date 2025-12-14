@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const role = (payload.role || '').toLowerCase();
+    const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+    const tokenUserId = typeof payload.userId === 'string' ? payload.userId : undefined;
 
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
@@ -49,7 +50,13 @@ export async function GET(request: NextRequest) {
 
     // If not admin, only show user's own transactions
     if (role !== 'admin') {
-      where.userId = payload.userId;
+      if (!tokenUserId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      where.userId = tokenUserId;
     }
 
     const transactions = await prisma.transaction.findMany({
@@ -121,6 +128,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
+    const tokenUserId = typeof payload.userId === 'string' ? payload.userId : undefined;
+
     const body = await request.json();
     const {
       userId,
@@ -143,7 +153,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Use provided userId or session userId
-    const transactionUserId = userId || payload.userId;
+    const transactionUserId = (typeof userId === 'string' && userId) || tokenUserId;
+
+    if (role !== 'admin' && (!tokenUserId || transactionUserId !== tokenUserId)) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    if (!transactionUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing user context' },
+        { status: 400 }
+      );
+    }
 
     const transaction = await prisma.transaction.create({
       data: {
