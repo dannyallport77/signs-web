@@ -71,8 +71,15 @@ export async function POST(request: NextRequest) {
           </div>
         `,
       });
+      console.log(`✓ Email sent successfully to ${email}`);
     } catch (emailError) {
       console.error("Resend email error:", emailError);
+      console.error("Email error details:", {
+        apiKey: process.env.RESEND_API_KEY ? "SET" : "NOT SET",
+        fromEmail: process.env.RESEND_FROM_EMAIL,
+        toEmail: email,
+        errorMessage: emailError instanceof Error ? emailError.message : String(emailError),
+      });
       // Clear the reset token if email sending fails
       await prisma.user.update({
         where: { email },
