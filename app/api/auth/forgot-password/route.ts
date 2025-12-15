@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { Resend } from "resend";
-import bcrypt from "bcrypt";
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -36,45 +35,54 @@ export async function POST(request: NextRequest) {
 
     // Generate reset token (valid for 1 hour)
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenHash = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
     const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    // Store reset token hash in database
+    // Store reset token in database
     await prisma.user.update({
       where: { email },
       data: {
-        // We'll need to add these fields to the schema
-        // For now, we'll just send the email
+        resetToken,
+        resetTokenExpiry,
       },
     });
 
     // Send email with reset link using Resend
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "noreply@review-signs.co.uk",
-      to: email,
-      subject: "Signs NFC - Reset Your Password",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Password Reset Request</h2>
-          <p style="color: #666;">You requested a password reset for your Signs NFC account.</p>
-          <p style="color: #666;">Click the link below to reset your password (valid for 1 hour):</p>
-          <div style="margin: 20px 0;">
-            <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background-color:#4f46e5;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
-              Reset Password
-            </a>
+    try {
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "noreply@review-signs.co.uk",
+        to: email,
+        subject: "Signs NFC - Reset Your Password",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Password Reset Request</h2>
+            <p style="color: #666;">You requested a password reset for your Signs NFC account.</p>
+            <p style="color: #666;">Click the link below to reset your password (valid for 1 hour):</p>
+            <div style="margin: 20px 0;">
+              <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background-color:#4f46e5;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
+                Reset Password
+              </a>
+            </div>
+            <p style="color: #999; font-size: 12px;">Or copy this link: <br/><code>${resetLink}</code></p>
+            <p style="color: #666;">If you didn't request this, you can safely ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;">
+            <p style="color: #999; font-size: 12px;">© 2025 Signs NFC Writer</p>
           </div>
-          <p style="color: #999; font-size: 12px;">Or copy this link: <br/><code>${resetLink}</code></p>
-          <p style="color: #666;">If you didn't request this, you can safely ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;">
-          <p style="color: #999; font-size: 12px;">© 2025 Signs NFC Writer</p>
-        </div>
-      `,
-    });
+        `,
+      });
+    } catch (emailError) {
+      console.error("Resend email error:", emailError);
+      // Clear the reset token if email sending fails
+      await prisma.user.update({
+        where: { email },
+        data: {
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+      throw emailError;
+    }
 
     return NextResponse.json({
       success: true,
