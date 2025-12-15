@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "d0ef5489-eb8b-4b89-9874-2b75668fa271"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.dannyallport77.signsweb",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -422,6 +422,45 @@ model PreprogrammedTagScan {
   @@index([timestamp])
 }
 
+// Fruit Machine Promotions & Results
+model FruitMachinePromotion {
+  id                  String   @id @default(cuid())
+  businessId          String
+  name                String
+  description         String?  @db.Text
+  monthlyBudget       Float?
+  winProbability      Float    @default(20) // Percentage
+  enabled             Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  results             FruitMachineResult[]
+  
+  @@index([businessId])
+  @@index([enabled])
+}
+
+model FruitMachineResult {
+  id                  String   @id @default(cuid())
+  promotionId         String
+  businessId          String
+  placeId             String?
+  winnerCode          String   @unique
+  prizeType           String   // gift, cash, spins, credit, merchandise
+  prizeName           String
+  prizeValue          String?  // For cash prizes, value in currency
+  isWin               Boolean  @default(false)
+  timestamp           DateTime @default(now())
+  createdAt           DateTime @default(now())
+  
+  promotion           FruitMachinePromotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  
+  @@index([businessId])
+  @@index([promotionId])
+  @@index([timestamp])
+  @@index([isWin])
+}
+
 // Email Inbox
 model Email {
   id          String   @id @default(cuid())
