@@ -27,6 +27,7 @@ model User {
   stockMovements StockMovement[]
   transactions  Transaction[]
   userInventory UserInventory[]
+  mobileDevices MobileDevice[]
 }
 
 model Account {
@@ -459,6 +460,56 @@ model FruitMachineResult {
   @@index([promotionId])
   @@index([timestamp])
   @@index([isWin])
+}
+
+// Mobile Device Registration for NFC Programming
+model MobileDevice {
+  id            String   @id @default(cuid())
+  deviceId      String   @unique // UUID from mobile app
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  deviceName    String   // iPhone 14 Pro, etc
+  appVersion    String
+  osVersion     String
+  
+  isActive      Boolean  @default(true)
+  lastHeartbeat DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  nfcTasks      NFCProgrammingTask[]
+  
+  @@index([userId])
+  @@index([isActive])
+  @@index([lastHeartbeat])
+}
+
+model NFCProgrammingTask {
+  id              String   @id @default(cuid())
+  deviceId        String
+  device          MobileDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  businessId      String
+  promotionId     String?  // Link to fruit machine or other promotion
+  
+  // NFC data to write
+  taskType        String   // "write_fruit_machine", "write_wifi", "write_smart_link", etc
+  nfcData         Json     // The actual data to write to tag
+  
+  // Status tracking
+  status          String   @default("pending") // pending, acknowledged, writing, completed, failed
+  attemptCount    Int      @default(0)
+  lastError       String?
+  
+  createdAt       DateTime @default(now())
+  acknowledgedAt  DateTime?
+  completedAt     DateTime?
+  
+  @@index([deviceId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Email Inbox
