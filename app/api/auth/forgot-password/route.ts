@@ -13,6 +13,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
+    console.log(`[forgot-password] Received request for email: ${email}`);
 
     if (!email) {
       return NextResponse.json(
@@ -26,12 +27,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      console.log(`[forgot-password] User not found for email: ${email}`);
       // Don't reveal if email exists for security
       return NextResponse.json({
         success: true,
         message: "If an account exists with this email, you will receive a password reset link",
       });
     }
+
+    console.log(`[forgot-password] User found: ${user.id}`);
 
     // Generate reset token (valid for 1 hour)
     const resetToken = crypto.randomBytes(32).toString("hex");
@@ -45,9 +49,12 @@ export async function POST(request: NextRequest) {
         resetTokenExpiry,
       },
     });
+    console.log(`[forgot-password] Token stored in database for ${email}`);
 
     // Send email with reset link using Resend
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    console.log(`[forgot-password] Sending email to ${email}`);
+    console.log(`[forgot-password] Reset link: ${resetLink}`);
 
     try {
       await resend.emails.send({
