@@ -23,68 +23,26 @@ Password reset functionality has been added to both the web and mobile apps. Use
 Add these to your `.env.local`:
 
 ```env
-# Email Configuration
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-specific-password  # Gmail App Password, not your actual password
+# Email Configuration (using Resend)
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL=noreply@yourdomain.com  # Default: noreply@review-signs.co.uk
 NEXT_PUBLIC_APP_URL=http://localhost:3000  # or your production URL
 ```
 
-### 2. Gmail Setup (Recommended)
+### 2. Get Resend API Key
 
-**Using Gmail with App Password:**
+1. Go to [Resend](https://resend.com)
+2. Sign up / Log in
+3. Go to API Keys section
+4. Create new API key
+5. Copy the key and add to `.env.local`
 
-1. Go to [Google Account Security](https://myaccount.google.com/security)
-2. Enable 2-Factor Authentication if not already enabled
-3. Go to "App passwords"
-4. Select "Mail" and "Windows Computer" (or your device)
-5. Generate password
-6. Use generated password in `EMAIL_PASSWORD`
+### 3. Configure Sender Email
 
-**Alternative: Using a service like SendGrid or Resend**
-
-```env
-# With SendGrid
-SENDGRID_API_KEY=your-sendgrid-api-key
-
-# Or with Resend
-RESEND_API_KEY=your-resend-api-key
-```
-
-### 3. Update API Endpoints (if using different email service)
-
-Edit `/app/api/auth/forgot-password/route.ts` to use your email service:
-
-#### Option A: SendGrid
-```typescript
-import sgMail from '@sendgrid/mail';
-
-const transporter = sgMail;
-transporter.setApiKey(process.env.SENDGRID_API_KEY!);
-
-// Send email
-await transporter.send({
-  to: email,
-  from: process.env.SENDGRID_FROM_EMAIL!,
-  subject: 'Signs NFC - Reset Your Password',
-  html: `...`
-});
-```
-
-#### Option B: Resend
-```typescript
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-await resend.emails.send({
-  from: 'noreply@yourdomain.com',
-  to: email,
-  subject: 'Signs NFC - Reset Your Password',
-  html: `...`
-});
-```
-
-### 4. Database Schema Updates
+The sender email should be:
+- A domain you own
+- Or use the default `noreply@review-signs.co.uk`
+- Must be verified in Resend dashboard
 
 Add these fields to the User model in `prisma/schema.prisma`:
 
@@ -219,27 +177,20 @@ Same as above but use production URL
 **Check 1**: Verify environment variables are set
 ```bash
 # In your deployment platform, confirm:
-# - EMAIL_USER
-# - EMAIL_PASSWORD
+# - RESEND_API_KEY
+# - RESEND_FROM_EMAIL
 # - NEXT_PUBLIC_APP_URL
 ```
 
-**Check 2**: Test email service directly
-```typescript
-// Quick test in API route
-const testEmail = await transporter.sendMail({
-  from: process.env.EMAIL_USER,
-  to: 'your-email@example.com',
-  subject: 'Test',
-  text: 'Test email'
-});
-console.log('Email sent:', testEmail);
-```
+**Check 2**: Verify Resend API key is valid
+- Go to [Resend Dashboard](https://resend.com)
+- Check API key hasn't been revoked
+- Generate new key if needed
 
-**Check 3**: Check email service logs
-- Gmail: Check "Less secure apps"
-- SendGrid: Check SendGrid logs
-- Resend: Check Resend dashboard
+**Check 3**: Check Resend logs
+- Go to [Resend Activity](https://resend.com/activity)
+- Look for failed email sends
+- Check error messages
 
 ### Reset link not working
 

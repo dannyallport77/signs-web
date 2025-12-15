@@ -1,21 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import bcrypt from "bcrypt";
 
-// Initialize email transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * POST /api/auth/forgot-password
- * Send password reset email
+ * Send password reset email using Resend
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,26 +47,32 @@ export async function POST(request: NextRequest) {
       where: { email },
       data: {
         // We'll need to add these fields to the schema
-        // For now, we'll use a workaround with a separate table
+        // For now, we'll just send the email
       },
     });
 
-    // Send email with reset link
+    // Send email with reset link using Resend
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "noreply@review-signs.co.uk",
       to: email,
       subject: "Signs NFC - Reset Your Password",
       html: `
-        <h2>Password Reset Request</h2>
-        <p>You requested a password reset for your Signs NFC account.</p>
-        <p>Click the link below to reset your password (valid for 1 hour):</p>
-        <a href="${resetLink}" style="display:inline-block;padding:10px 20px;background-color:#4f46e5;color:white;text-decoration:none;border-radius:6px;">
-          Reset Password
-        </a>
-        <p>Or copy this link: ${resetLink}</p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p style="color: #666;">You requested a password reset for your Signs NFC account.</p>
+          <p style="color: #666;">Click the link below to reset your password (valid for 1 hour):</p>
+          <div style="margin: 20px 0;">
+            <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background-color:#4f46e5;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #999; font-size: 12px;">Or copy this link: <br/><code>${resetLink}</code></p>
+          <p style="color: #666;">If you didn't request this, you can safely ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;">
+          <p style="color: #999; font-size: 12px;">© 2025 Signs NFC Writer</p>
+        </div>
       `,
     });
 
