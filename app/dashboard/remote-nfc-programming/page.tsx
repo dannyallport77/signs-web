@@ -10,6 +10,13 @@ interface Device {
   osVersion: string;
   isActive: boolean;
   lastHeartbeat: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  };
+  hasActiveSession: boolean;
+  sessionExpiresAt: string | null;
 }
 
 interface Promotion {
@@ -108,6 +115,10 @@ export default function RemoteNFCProgrammingPage() {
     }
   };
 
+  const selectedDeviceInfo = selectedDevice
+    ? devices.find((d) => d.deviceId === selectedDevice)
+    : undefined;
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8">
@@ -149,6 +160,9 @@ export default function RemoteNFCProgrammingPage() {
                     </p>
                     <p className="text-sm text-gray-500">
                       iOS {device.osVersion}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Assigned to {device.user?.name || device.user?.email || 'Unassigned'}
                     </p>
                   </div>
                   <span
@@ -227,12 +241,17 @@ export default function RemoteNFCProgrammingPage() {
           )}
 
           {/* Selected Device Display */}
-          {selectedDevice && (
+          {selectedDeviceInfo && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-900">
-                <strong>Selected Device:</strong>{' '}
-                {devices.find((d) => d.deviceId === selectedDevice)?.deviceName}
-              </p>
+              <div className="space-y-1 text-sm text-blue-900">
+                <p>
+                  <strong>Selected Device:</strong> {selectedDeviceInfo.deviceName}
+                </p>
+                <p>
+                  <strong>Assigned User:</strong>{' '}
+                  {selectedDeviceInfo.user?.name || selectedDeviceInfo.user?.email || 'Unassigned user'}
+                </p>
+              </div>
             </div>
           )}
 
@@ -272,6 +291,16 @@ export default function RemoteNFCProgrammingPage() {
             The phone will start listening for NFC tags and automatically program the
             next tag it detects
           </li>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>Last seen: {new Date(device.lastHeartbeat).toLocaleString()}</p>
+                  {device.hasActiveSession ? (
+                    <p className="text-green-700">
+                      Active session expires {device.sessionExpiresAt ? new Date(device.sessionExpiresAt).toLocaleTimeString() : 'soon'}
+                    </p>
+                  ) : (
+                    <p className="text-red-600">User session inactive</p>
+                  )}
+                </div>
           <li>
             The task status will update in real-time as the phone acknowledges and
             completes it

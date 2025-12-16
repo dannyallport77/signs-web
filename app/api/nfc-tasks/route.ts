@@ -48,10 +48,17 @@ export async function POST(request: NextRequest) {
       where: { deviceId },
     });
 
-    if (!device || device.userId !== user.id) {
+    if (!device) {
       return NextResponse.json(
-        { error: "Device not found or not authorized" },
+        { error: "Device not found" },
         { status: 404 }
+      );
+    }
+
+    if (device.userId !== user.id && user.role !== "admin") {
+      return NextResponse.json(
+        { error: "Not authorized to target this device" },
+        { status: 403 }
       );
     }
 

@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 
 /**
  * GET /api/mobile-devices/[deviceId]/tasks
@@ -14,16 +12,43 @@ export async function GET(
   try {
     const { deviceId } = await params;
 
+    if (!deviceId) {
+      return NextResponse.json(
+        { error: "Device ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify device exists and update lastHeartbeat
+    const device = await prisma.mobileDevice.findUnique({
+      where: { deviceId },
+    });
+
+    if (!device) {
+      return NextResponse.json(
+        { error: "Device not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update device heartbeat to track activity
+    await prisma.mobileDevice.update({
+      where: { deviceId },
+      data: { lastHeartbeat: new Date() },
+    });
+
     // Get pending tasks for this device
     const tasks = await prisma.nFCProgrammingTask.findMany({
       where: {
         deviceId,
-        status: "pending",
+        status: { in: ["pending", "acknowledged"] },
       },
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json({ tasks });
+    console.log(`[PassiveNFC] Device ${deviceId} polled - found ${tasks.length} tasks`);
+
+    return NextResponse.json({ tasks, deviceId });
   } catch (error) {
     console.error("Error fetching tasks:", error);
     return NextResponse.json(
@@ -34,7 +59,7 @@ export async function GET(
 }
 
 /**
- * PATCH /api/mobile-devices/[deviceId]/tasks/[taskId]
+ * PATCH /api/mobile-devices/[deviceId]/tasks?taskId=...
  * Update task status (acknowledge, writing, completed, failed)
  */
 export async function PATCH(
@@ -54,6 +79,14 @@ export async function PATCH(
     }
 
     const { status, lastError } = await request.json();
+
+    const validStatuses = ["acknowledged", "writing", "completed", "failed"] as const;
+    if (!status || !validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: "Invalid task status" },
+        { status: 400 }
+      );
+    }
 
     const task = await prisma.nFCProgrammingTask.findUnique({
       where: { id: taskId },
@@ -81,6 +114,14 @@ export async function PATCH(
       where: { id: taskId },
       data: updateData,
     });
+
+    // Also update device heartbeat to track activity
+    await prisma.mobileDevice.update({
+      where: { deviceId },
+      data: { lastHeartbeat: new Date() },
+    });
+
+    console.log(`[PassiveNFC] Task ${taskId} status updated to ${status}`);
 
     return NextResponse.json({ task: updated });
   } catch (error) {
