@@ -517,6 +517,35 @@ model NFCProgrammingTask {
   @@index([createdAt])
 }
 
+// Fruit Machine Analytics - Tracks scans, wins, losses per business/venue
+model FruitMachineAnalytics {
+  id                  String   @id @default(cuid())
+  placeId             String
+  businessId          String?
+  businessName        String?
+  promotionId         String?
+  promotionName       String?
+  
+  eventType           String   // 'scan', 'win', 'loss'
+  gameType            String?  // 'fruit-machine', 'scratch-card', 'spin-wheel'
+  machineType         String?  // 'classic', 'neon', 'vintage', 'minimal', 'rainbow'
+  
+  // Win details
+  won                 Boolean?
+  prizeType           String?  // 'gift', 'cash'
+  prizeName           String?
+  prizeAmount         Float?
+  
+  timestamp           DateTime @default(now())
+  
+  @@index([placeId])
+  @@index([businessId])
+  @@index([promotionId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([won])
+}
+
 // Email Inbox
 model Email {
   id          String   @id @default(cuid())
