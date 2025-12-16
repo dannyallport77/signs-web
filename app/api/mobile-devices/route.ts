@@ -3,24 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-const getActiveUserSessions = async () => {
-  const activeSessions = await prisma.session.findMany({
-    where: { expires: { gt: new Date() } },
-    select: { userId: true, expires: true },
-  });
-
-  const sessionMap = new Map<string, Date>();
-  for (const session of activeSessions) {
-    const existing = sessionMap.get(session.userId);
-    // Keep the furthest expiry for visibility when multiple sessions exist
-    if (!existing || existing < session.expires) {
-      sessionMap.set(session.userId, session.expires);
-    }
-  }
-
-  return sessionMap;
-};
-
 /**
  * GET /api/mobile-devices
  * List all devices for logged-in user
@@ -46,20 +28,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const sessionMap = await getActiveUserSessions();
+    const configuredTimeout = parseInt(process.env.NEXT_PUBLIC_NFC_DEVICE_TIMEOUT_MINUTES || "10", 10);
+    const heartbeatThresholdMinutes = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : 10;
+    const heartbeatThreshold = new Date(Date.now() - heartbeatThresholdMinutes * 60 * 1000);
 
     const deviceWhereClause = user.role === "admin"
       ? {
-          userId: {
-            in: Array.from(sessionMap.keys()),
+          lastHeartbeat: {
+            gt: heartbeatThreshold,
           },
         }
-      : { userId: user.id };
-
-    // If admin but no users are currently online, short circuit to avoid empty IN [] query
-    if (user.role === "admin" && sessionMap.size === 0) {
-      return NextResponse.json({ devices: [] });
-    }
+      : {
+          userId: user.id,
+          lastHeartbeat: {
+            gt: heartbeatThreshold,
+          },
+        };
 
     const devices = await prisma.mobileDevice.findMany({
       where: deviceWhereClause,
@@ -80,15 +66,14 @@ export async function GET(request: NextRequest) {
       deviceId: device.deviceId,
       deviceName: device.deviceName,
       osVersion: device.osVersion,
-      isActive: device.isActive,
+      isActive: device.lastHeartbeat > heartbeatThreshold,
       lastHeartbeat: device.lastHeartbeat.toISOString(),
       user: {
         id: device.user.id,
         name: device.user.name,
         email: device.user.email,
       },
-      hasActiveSession: sessionMap.has(device.userId),
-      sessionExpiresAt: sessionMap.get(device.userId)?.toISOString() ?? null,
+      heartbeatThresholdMinutes,
     }));
 
     return NextResponse.json({ devices: serializedDevices });

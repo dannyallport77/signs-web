@@ -15,8 +15,7 @@ interface Device {
     name: string | null;
     email: string | null;
   };
-  hasActiveSession: boolean;
-  sessionExpiresAt: string | null;
+  heartbeatThresholdMinutes: number;
 }
 
 interface Promotion {
@@ -177,12 +176,12 @@ export default function RemoteNFCProgrammingPage() {
                 </div>
                 <div className="text-xs text-gray-500 space-y-1">
                   <p>Last seen: {new Date(device.lastHeartbeat).toLocaleString()}</p>
-                  {device.hasActiveSession ? (
+                  {device.isActive ? (
                     <p className="text-green-700">
-                      Active session expires {device.sessionExpiresAt ? new Date(device.sessionExpiresAt).toLocaleTimeString() : 'soon'}
+                      Active within last {device.heartbeatThresholdMinutes} minutes
                     </p>
                   ) : (
-                    <p className="text-red-600">User session inactive</p>
+                    <p className="text-red-600">Inactive</p>
                   )}
                 </div>
               </div>
