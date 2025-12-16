@@ -37,12 +37,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+import FruitMachineAdvert from '@/components/FruitMachineAdvert';
+
 export default async function ReviewMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const menu = await fetchMenu(slug);
 
   if (!menu) {
     notFound();
+  }
+
+  // Fetch active promotion
+  let activePromotion = null;
+  if (menu.promotionId) {
+    activePromotion = await prisma.promotion.findUnique({
+      where: { id: menu.promotionId },
+    });
   }
 
   const heroTitle = menu.heroTitle || `Leave a review for ${menu.businessName}`;
@@ -503,6 +513,14 @@ export default async function ReviewMenuPage({ params }: { params: Promise<{ slu
           </div>
           <h1 className="text-3xl font-bold tracking-tight">{menu.businessName}</h1>
         </div>
+
+        {activePromotion && activePromotion.enabled && (
+          <FruitMachineAdvert 
+            giftName={activePromotion.giftName || 'Prize'}
+            giftEmoji={activePromotion.giftEmoji || '🎁'}
+            businessName={menu.businessName}
+          />
+        )}
 
         {googlePlatform ? renderOrbitLayout(googlePlatform) : renderListLayout()}
 

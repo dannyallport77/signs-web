@@ -13,16 +13,23 @@ export async function GET(request: Request) {
       );
     }
 
-    const promotions = await prisma.promotion.findMany({
-      where: {
-        placeId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const [legacyPromotions, newPromotions] = await Promise.all([
+      prisma.promotion.findMany({
+        where: { placeId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.fruitMachinePromotion.findMany({
+        where: { placeId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    return NextResponse.json(promotions);
+    // Combine and sort
+    const allPromotions = [...newPromotions, ...legacyPromotions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return NextResponse.json(allPromotions);
   } catch (error) {
     console.error('Error fetching promotions:', error);
     return NextResponse.json(

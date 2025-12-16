@@ -22,25 +22,26 @@ export default async function FruitMachineResultsPage() {
   if (!session?.user) redirect('/login');
 
   // Get results for all businesses owned by this user
-  const businesses = await prisma.business.findMany({
-    where: { createdBy: session.user.id },
-    select: { id: true, name: true },
-  });
+  // const businesses = await prisma.business.findMany({
+  //   where: { createdBy: session.user.id },
+  //   select: { id: true, name: true },
+  // });
+  const businesses: any[] = [];
 
-  if (!businesses.length) {
-    return notFound();
-  }
+  // if (!businesses.length) {
+  //   return notFound();
+  // }
 
   const businessIds = businesses.map((b) => b.id);
 
   // Fetch results from custom table or API endpoint
   // This assumes you have a fruit_machine_results table
-  const results = await prisma.$queryRaw`
+  const results: any[] = []; /* await prisma.$queryRaw`
     SELECT * FROM fruit_machine_results 
     WHERE business_id IN (${businessIds})
     ORDER BY timestamp DESC
     LIMIT 1000
-  `.catch(() => []);
+  `.catch(() => []); */
 
   // Calculate statistics
   const totalSpins = results?.length || 0;

@@ -69,3 +69,15 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         resetToken: null,
         resetTokenExpiry: null,
+      },
+    });
+
+    return NextResponse.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    return NextResponse.json(
+      { error: "Failed to reset password" },
+      { status: 500 }
+    );
+  }
+}

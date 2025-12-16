@@ -429,8 +429,10 @@ model PreprogrammedTagScan {
 model FruitMachinePromotion {
   id                  String   @id @default(cuid())
   businessId          String
+  placeId             String?  // Added for NFC lookup
   name                String
   description         String?  @db.Text
+  prizes              Json?    // Store PrizeOption[]
   monthlyBudget       Float?
   winProbability      Float    @default(20) // Percentage
   enabled             Boolean  @default(true)
@@ -440,6 +442,7 @@ model FruitMachinePromotion {
   results             FruitMachineResult[]
   
   @@index([businessId])
+  @@index([placeId])
   @@index([enabled])
 }
 

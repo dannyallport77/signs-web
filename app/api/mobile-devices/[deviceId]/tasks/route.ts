@@ -9,10 +9,10 @@ import { authOptions } from "@/lib/auth";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
-    const { deviceId } = params;
+    const { deviceId } = await params;
 
     // Get pending tasks for this device
     const tasks = await prisma.nFCProgrammingTask.findMany({
@@ -39,9 +39,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
+    const { deviceId } = await params;
     const { searchParams } = request.nextUrl;
     const taskId = searchParams.get("taskId");
 
@@ -58,7 +59,7 @@ export async function PATCH(
       where: { id: taskId },
     });
 
-    if (!task || task.deviceId !== params.deviceId) {
+    if (!task || task.deviceId !== deviceId) {
       return NextResponse.json(
         { error: "Task not found" },
         { status: 404 }
