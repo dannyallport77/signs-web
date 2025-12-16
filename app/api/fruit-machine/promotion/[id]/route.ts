@@ -58,3 +58,79 @@ export async function GET(
     );
   }
 }
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const {
+      enabled,
+      startsAt,
+      endsAt,
+      name,
+      winProbability,
+      monthlyBudget,
+      prizes,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Missing promotion ID' },
+        { status: 400 }
+      );
+    }
+
+    // Check if promotion exists
+    const existingPromotion = await prisma.fruitMachinePromotion.findUnique({
+      where: { id },
+    });
+
+    if (!existingPromotion) {
+      return NextResponse.json(
+        { error: 'Promotion not found' },
+        { status: 404 }
+      );
+    }
+
+    // Update the promotion
+    const updateData: any = {};
+    
+    if (enabled !== undefined) {
+      updateData.enabled = enabled;
+    }
+    if (startsAt !== undefined) {
+      updateData.startsAt = startsAt ? new Date(startsAt) : null;
+    }
+    if (endsAt !== undefined) {
+      updateData.endsAt = endsAt ? new Date(endsAt) : null;
+    }
+    if (name !== undefined) {
+      updateData.name = name;
+    }
+    if (winProbability !== undefined) {
+      updateData.winProbability = winProbability;
+    }
+    if (monthlyBudget !== undefined) {
+      updateData.monthlyBudget = monthlyBudget ? parseFloat(monthlyBudget) : null;
+    }
+    if (prizes !== undefined) {
+      updateData.prizes = prizes;
+    }
+
+    const updatedPromotion = await prisma.fruitMachinePromotion.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json(updatedPromotion);
+  } catch (error) {
+    console.error('Error updating promotion:', error);
+    return NextResponse.json(
+      { error: 'Failed to update promotion' },
+      { status: 500 }
+    );
+  }
+}

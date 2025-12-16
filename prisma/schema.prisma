@@ -436,6 +436,11 @@ model FruitMachinePromotion {
   monthlyBudget       Float?
   winProbability      Float    @default(20) // Percentage
   enabled             Boolean  @default(true)
+  
+  // Time-bound activation
+  startsAt            DateTime?
+  endsAt              DateTime?
+  
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   
@@ -444,6 +449,8 @@ model FruitMachinePromotion {
   @@index([businessId])
   @@index([placeId])
   @@index([enabled])
+  @@index([startsAt])
+  @@index([endsAt])
 }
 
 model FruitMachineResult {
