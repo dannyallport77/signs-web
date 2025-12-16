@@ -10,9 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
-    const { deviceId } = await params;
+    const { deviceId: deviceUuid } = await params;
 
-    if (!deviceId) {
+    if (!deviceUuid) {
       return NextResponse.json(
         { error: "Device ID is required" },
         { status: 400 }
@@ -21,7 +21,7 @@ export async function GET(
 
     // Verify device exists and update lastHeartbeat
     const device = await prisma.mobileDevice.findUnique({
-      where: { deviceId },
+      where: { deviceId: deviceUuid },
     });
 
     if (!device) {
@@ -33,22 +33,22 @@ export async function GET(
 
     // Update device heartbeat to track activity
     await prisma.mobileDevice.update({
-      where: { deviceId },
+      where: { deviceId: deviceUuid },
       data: { lastHeartbeat: new Date() },
     });
 
     // Get pending tasks for this device
     const tasks = await prisma.nFCProgrammingTask.findMany({
       where: {
-        deviceId,
+        deviceId: device.id,
         status: { in: ["pending", "acknowledged"] },
       },
       orderBy: { createdAt: "asc" },
     });
 
-    console.log(`[PassiveNFC] Device ${deviceId} polled - found ${tasks.length} tasks`);
+    console.log(`[PassiveNFC] Device ${deviceUuid} polled - found ${tasks.length} tasks`);
 
-    return NextResponse.json({ tasks, deviceId });
+    return NextResponse.json({ tasks, deviceId: deviceUuid });
   } catch (error) {
     console.error("Error fetching tasks:", error);
     return NextResponse.json(
@@ -67,7 +67,7 @@ export async function PATCH(
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
   try {
-    const { deviceId } = await params;
+    const { deviceId: deviceUuid } = await params;
     const { searchParams } = request.nextUrl;
     const taskId = searchParams.get("taskId");
 
@@ -88,11 +88,22 @@ export async function PATCH(
       );
     }
 
+    const device = await prisma.mobileDevice.findUnique({
+      where: { deviceId: deviceUuid },
+    });
+
+    if (!device) {
+      return NextResponse.json(
+        { error: "Device not found" },
+        { status: 404 }
+      );
+    }
+
     const task = await prisma.nFCProgrammingTask.findUnique({
       where: { id: taskId },
     });
 
-    if (!task || task.deviceId !== deviceId) {
+    if (!task || task.deviceId !== device.id) {
       return NextResponse.json(
         { error: "Task not found" },
         { status: 404 }
@@ -117,7 +128,7 @@ export async function PATCH(
 
     // Also update device heartbeat to track activity
     await prisma.mobileDevice.update({
-      where: { deviceId },
+      where: { deviceId: deviceUuid },
       data: { lastHeartbeat: new Date() },
     });
 

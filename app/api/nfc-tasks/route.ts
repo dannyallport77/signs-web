@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify device belongs to user
+    // Verify device exists (deviceId here is the mobile UUID, not the DB PK)
     const device = await prisma.mobileDevice.findUnique({
       where: { deviceId },
     });
@@ -62,10 +62,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the task
+    // Create the task (store DB PK for relational integrity)
     const task = await prisma.nFCProgrammingTask.create({
       data: {
-        deviceId,
+        deviceId: device.id,
         businessId,
         promotionId,
         taskType,

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { verifyMobileToken } from "@/lib/auth-mobile";
 
 /**
  * POST /api/mobile-devices/register
@@ -9,23 +10,31 @@ import { authOptions } from "@/lib/auth";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Supports both web dashboard (NextAuth cookie session) and mobile app (Bearer JWT)
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const authHeader = request.headers.get("authorization");
+
+    let user = null as null | { id: string; email: string };
+
+    if (session?.user?.email) {
+      user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true, email: true },
+      });
+    } else if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      const payload = await verifyMobileToken(token);
+      const userId = payload?.userId as string | undefined;
+      if (userId) {
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true },
+        });
+      }
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { deviceId, deviceName, appVersion, osVersion } = await request.json();
