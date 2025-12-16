@@ -175,9 +175,16 @@ export default function RemoteNFCProgrammingPage() {
                     {device.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400">
-                  Last seen: {new Date(device.lastHeartbeat).toLocaleString()}
-                </p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>Last seen: {new Date(device.lastHeartbeat).toLocaleString()}</p>
+                  {device.hasActiveSession ? (
+                    <p className="text-green-700">
+                      Active session expires {device.sessionExpiresAt ? new Date(device.sessionExpiresAt).toLocaleTimeString() : 'soon'}
+                    </p>
+                  ) : (
+                    <p className="text-red-600">User session inactive</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -291,16 +298,6 @@ export default function RemoteNFCProgrammingPage() {
             The phone will start listening for NFC tags and automatically program the
             next tag it detects
           </li>
-                <div className="text-xs text-gray-500 space-y-1">
-                  <p>Last seen: {new Date(device.lastHeartbeat).toLocaleString()}</p>
-                  {device.hasActiveSession ? (
-                    <p className="text-green-700">
-                      Active session expires {device.sessionExpiresAt ? new Date(device.sessionExpiresAt).toLocaleTimeString() : 'soon'}
-                    </p>
-                  ) : (
-                    <p className="text-red-600">User session inactive</p>
-                  )}
-                </div>
           <li>
             The task status will update in real-time as the phone acknowledges and
             completes it
