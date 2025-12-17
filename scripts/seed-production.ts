@@ -40,14 +40,14 @@ async function main() {
   });
   console.log('✓ Created test user:', testUser.email, '- active:', testUser.active);
 
-  // Create sign types
+  // Create sign types - NFC signs for review and social media collection
   const signTypes = [
-    { id: 'for-sale', name: 'For Sale', defaultPrice: 29.99 },
-    { id: 'to-let', name: 'To Let', defaultPrice: 29.99 },
-    { id: 'sold', name: 'Sold', defaultPrice: 29.99 },
-    { id: 'under-offer', name: 'Under Offer', defaultPrice: 29.99 },
-    { id: 'open-house', name: 'Open House', defaultPrice: 24.99 },
-    { id: 'private-parking', name: 'Private Parking', defaultPrice: 19.99 },
+    { id: 'google-review-sign', name: 'Google Review NFC Sign', defaultPrice: 34.99 },
+    { id: 'multi-platform-sign', name: 'Multi-Platform NFC Sign', defaultPrice: 44.99 },
+    { id: 'facebook-review-sign', name: 'Facebook Review NFC Sign', defaultPrice: 29.99 },
+    { id: 'social-media-follow-sign', name: 'Social Media Follow NFC Sign', defaultPrice: 39.99 },
+    { id: 'trustpilot-review-sign', name: 'Trustpilot Review NFC Sign', defaultPrice: 29.99 },
+    { id: 'custom-review-bundle', name: 'Custom Review Bundle (5 Signs)', defaultPrice: 129.99 },
   ];
 
   for (const signType of signTypes) {
