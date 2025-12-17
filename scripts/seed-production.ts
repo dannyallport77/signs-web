@@ -42,27 +42,31 @@ async function main() {
 
   // Create sign types
   const signTypes = [
-    { name: 'For Sale', defaultPrice: 29.99 },
-    { name: 'To Let', defaultPrice: 29.99 },
-    { name: 'Sold', defaultPrice: 29.99 },
-    { name: 'Under Offer', defaultPrice: 29.99 },
-    { name: 'Open House', defaultPrice: 24.99 },
-    { name: 'Private Parking', defaultPrice: 19.99 },
+    { id: 'for-sale', name: 'For Sale', defaultPrice: 29.99 },
+    { id: 'to-let', name: 'To Let', defaultPrice: 29.99 },
+    { id: 'sold', name: 'Sold', defaultPrice: 29.99 },
+    { id: 'under-offer', name: 'Under Offer', defaultPrice: 29.99 },
+    { id: 'open-house', name: 'Open House', defaultPrice: 24.99 },
+    { id: 'private-parking', name: 'Private Parking', defaultPrice: 19.99 },
   ];
 
   for (const signType of signTypes) {
-    const existing = await prisma.signType.findFirst({
-      where: { name: signType.name },
+    const created = await prisma.signType.upsert({
+      where: { id: signType.id },
+      update: {
+        name: signType.name,
+        defaultPrice: signType.defaultPrice,
+        isActive: true,
+      },
+      create: {
+        id: signType.id,
+        name: signType.name,
+        defaultPrice: signType.defaultPrice,
+        isActive: true,
+        updatedAt: new Date(),
+      },
     });
-    
-    if (!existing) {
-      const created = await prisma.signType.create({
-        data: signType,
-      });
-      console.log('✓ Created sign type:', created.name);
-    } else {
-      console.log('- Sign type already exists:', existing.name);
-    }
+    console.log('✓ Created/updated sign type:', created.name);
   }
 
   console.log('✅ Seeding complete!');
