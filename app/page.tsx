@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PhoneAnimation from '../components/PhoneAnimation';
 import NotificationBubble from '../components/NotificationBubble';
+import TypewriterText from '../components/TypewriterText';
 import Logo from '../components/Logo';
 
 export default function Home() {
@@ -75,6 +76,9 @@ export default function Home() {
               </div>
               
               <div className="relative lg:h-[600px] flex items-center justify-center">
+                {/* Typewriter Text Around Phone */}
+                <TypewriterText />
+                
                 <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10 animate-enter-phone">
                   <PhoneAnimation />
                   
