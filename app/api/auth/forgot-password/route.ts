@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { Resend } from "resend";
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend lazily to avoid build-time errors
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY || process.env.EMAIL_PASSWORD);
+}
 
 /**
  * POST /api/auth/forgot-password
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
     console.log(`[forgot-password] Reset link: ${resetLink}`);
 
     try {
+      const resend = getResendClient();
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || "noreply@review-signs.co.uk",
         to: email,
