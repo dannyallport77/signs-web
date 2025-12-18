@@ -110,7 +110,7 @@ export default function TypewriterText() {
     return () => clearInterval(interval);
   }, []);
 
-  const text = "WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • ";
+  const text = "WE DO SOCIAL MEDIA  •  WE DO SOCIAL MEDIA  •  WE DO SOCIAL MEDIA  •  ";
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 5 }}>
@@ -130,11 +130,11 @@ export default function TypewriterText() {
         
         {/* Animated text on snake path */}
         <text 
-          className="fill-white font-black uppercase"
+          className="fill-white/70 font-bold uppercase"
           style={{ 
-            fontSize: '42px',
+            fontSize: '24px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
-            letterSpacing: '0.15em'
+            letterSpacing: '0.3em'
           }}
         >
           <textPath 
@@ -147,11 +147,11 @@ export default function TypewriterText() {
         
         {/* Second text for seamless loop */}
         <text 
-          className="fill-white font-black uppercase"
+          className="fill-white/70 font-bold uppercase"
           style={{ 
-            fontSize: '42px',
+            fontSize: '24px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
-            letterSpacing: '0.15em'
+            letterSpacing: '0.3em'
           }}
         >
           <textPath 
