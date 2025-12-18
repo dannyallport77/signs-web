@@ -203,9 +203,9 @@ export default function PhoneAnimation() {
       </div>
 
       {/* Status Bar */}
-      <div className="h-6 bg-black text-white flex justify-between items-center px-4 text-[10px] font-medium z-20 relative">
+      <div className="h-12 bg-black text-white flex justify-between items-center px-4 text-base font-medium z-20 relative">
         <span>9:41</span>
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           <span>5G</span>
           <span>100%</span>
         </div>
