@@ -7,8 +7,8 @@ export default function TypewriterText() {
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setOffset(prev => (prev + 0.3) % 100);
-    }, 30);
+      setOffset(prev => (prev + 0.1) % 100);
+    }, 50);
     
     return () => clearInterval(interval);
   }, []);
@@ -48,7 +48,7 @@ export default function TypewriterText() {
         
         {/* Animated text on snake path */}
         <text 
-          className="fill-white/80 font-black uppercase"
+          className="fill-white font-black uppercase"
           style={{ 
             fontSize: '48px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -65,7 +65,7 @@ export default function TypewriterText() {
         
         {/* Second text for seamless loop */}
         <text 
-          className="fill-white/80 font-black uppercase"
+          className="fill-white font-black uppercase"
           style={{ 
             fontSize: '48px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
