@@ -121,7 +121,7 @@ export default function NotificationBubble() {
       return { title: 'New Follower!', icon: '/platform-logos/instagram.png', color: 'bg-gradient-to-r from-purple-500 to-pink-500' };
     }
     if (isTikTok) {
-      return { title: 'New Follower!', icon: '/platform-logos/tiktok.png', color: 'bg-black' };
+      return { title: 'Message Sent!', icon: '/platform-logos/tiktok.png', color: 'bg-black' };
     }
     if (isCheckatrade) {
       return { title: 'Review Received!', icon: '/platform-logos/checkatrade.png', color: 'bg-blue-800' };
