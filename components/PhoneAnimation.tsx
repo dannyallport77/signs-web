@@ -53,19 +53,35 @@ export default function PhoneAnimation() {
       { time: 1500, next: 36 }, // 35: Following
       { time: 500, next: 37 },  // 36: Success
 
-      // --- CHECKATRADE (37-49) ---
+      // --- FACEBOOK (37-43) ---
       { time: 800, next: 38 },  // 37: Load
       { time: 200, next: 39 },  // 38: Wait
-      { time: 200, next: 40 },  // 39: Score 1
-      { time: 200, next: 41 },  // 40: Score 2
-      { time: 200, next: 42 },  // 41: Score 3
-      { time: 200, next: 43 },  // 42: Score 4 (10/10)
-      { time: 400, next: 44 },  // 43: Type Part 1
-      { time: 400, next: 45 },  // 44: Type Part 2
-      { time: 400, next: 46 },  // 45: Type Full
-      { time: 500, next: 47 },  // 46: Submit
-      { time: 2000, next: 48 }, // 47: Success
-      { time: 100, next: 0 },   // 48: Loop
+      { time: 200, next: 40 },  // 39: Press Like
+      { time: 800, next: 41 },  // 40: Loading
+      { time: 1500, next: 42 }, // 41: Liked state
+      { time: 500, next: 43 },  // 42: Success
+
+      // --- SNAPCHAT (43-49) ---
+      { time: 800, next: 44 },  // 43: Load
+      { time: 200, next: 45 },  // 44: Wait
+      { time: 200, next: 46 },  // 45: Press Add
+      { time: 800, next: 47 },  // 46: Loading
+      { time: 1500, next: 48 }, // 47: Added state
+      { time: 500, next: 49 },  // 48: Success
+
+      // --- CHECKATRADE (49-61) ---
+      { time: 800, next: 50 },  // 49: Load
+      { time: 200, next: 51 },  // 50: Wait
+      { time: 200, next: 52 },  // 51: Score 1
+      { time: 200, next: 53 },  // 52: Score 2
+      { time: 200, next: 54 },  // 53: Score 3
+      { time: 200, next: 55 },  // 54: Score 4 (10/10)
+      { time: 400, next: 56 },  // 55: Type Part 1
+      { time: 400, next: 57 },  // 56: Type Part 2
+      { time: 400, next: 58 },  // 57: Type Full
+      { time: 500, next: 59 },  // 58: Submit
+      { time: 2000, next: 60 }, // 59: Success
+      { time: 100, next: 0 },   // 60: Loop
     ];
 
     const currentStepConfig = sequence[step] || sequence[0];
@@ -88,13 +104,17 @@ export default function PhoneAnimation() {
   const isTrustpilot = step >= 13 && step <= 24;
   const isInstagram = step >= 25 && step <= 30;
   const isTikTok = step >= 31 && step <= 36;
-  const isCheckatrade = step >= 37 && step <= 48;
+  const isFacebook = step >= 37 && step <= 42;
+  const isSnapchat = step >= 43 && step <= 48;
+  const isCheckatrade = step >= 49 && step <= 60;
 
   const getUrl = () => {
     if (isGoogle) return 'google.com';
     if (isTrustpilot) return 'trustpilot.com';
     if (isInstagram) return 'instagram.com';
     if (isTikTok) return 'tiktok.com';
+    if (isFacebook) return 'facebook.com';
+    if (isSnapchat) return 'snapchat.com';
     if (isCheckatrade) return 'checkatrade.com';
     return '...';
   };
@@ -121,17 +141,25 @@ export default function PhoneAnimation() {
   const tiktokFollowing = step >= 35;
   const tiktokLoading = step === 34;
 
+  // Facebook Logic
+  const fbLiked = step >= 41;
+  const fbLoading = step === 40;
+
+  // Snapchat Logic
+  const snapAdded = step >= 47;
+  const snapLoading = step === 46;
+
   // Checkatrade Logic
-  const catScore = (step >= 42 && step <= 48) ? 10 : (step >= 39 ? (step - 38) * 2.5 : 0); // 2.5, 5, 7.5, 10
-  const catText = step === 44 ? "Exce" : step === 45 ? "Excellent" : step >= 46 ? "Excellent work!" : "";
-  const showCatCursor = step >= 44 && step <= 46;
-  const catSubmitted = step >= 47;
+  const catScore = (step >= 54 && step <= 60) ? 10 : (step >= 51 ? (step - 50) * 2.5 : 0);
+  const catText = step === 56 ? "Exce" : step === 57 ? "Excellent" : step >= 58 ? "Excellent work!" : "";
+  const showCatCursor = step >= 56 && step <= 58;
+  const catSubmitted = step >= 59;
 
   // Global Success State (for overlay)
   const showSuccessOverlay = 
     (isGoogle && step === 12) || 
     (isTrustpilot && step === 24) ||
-    (isCheckatrade && step === 47);
+    (isCheckatrade && step === 59);
 
   // Sample Images for Social Media
   const coffeeImages = [
@@ -148,21 +176,29 @@ export default function PhoneAnimation() {
   return (
     <div className="w-full h-full bg-white relative overflow-hidden font-sans select-none">
       {/* Platform Indicator */}
-      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-50 flex gap-2">
-        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isGoogle ? 'scale-110 ring-2 ring-blue-500' : 'scale-75 opacity-50'}`}>
-          <img src="/platform-logos/google.png" alt="Google" className="w-5 h-5 object-contain" />
+      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-50 flex gap-1.5">
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isGoogle ? 'scale-110 ring-2 ring-blue-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/google.png" alt="Google" className="w-4 h-4 object-contain" />
         </div>
-        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTrustpilot ? 'scale-110 ring-2 ring-green-500' : 'scale-75 opacity-50'}`}>
-          <img src="/platform-logos/trustpilot.png" alt="Trustpilot" className="w-5 h-5 object-contain" />
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTrustpilot ? 'scale-110 ring-2 ring-green-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/trustpilot.png" alt="Trustpilot" className="w-4 h-4 object-contain" />
         </div>
-        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isInstagram ? 'scale-110 ring-2 ring-pink-500' : 'scale-75 opacity-50'}`}>
-          <img src="/platform-logos/instagram.png" alt="Instagram" className="w-5 h-5 object-contain" />
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isInstagram ? 'scale-110 ring-2 ring-pink-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/instagram.png" alt="Instagram" className="w-4 h-4 object-contain" />
         </div>
-        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTikTok ? 'scale-110 ring-2 ring-black' : 'scale-75 opacity-50'}`}>
-          <img src="/platform-logos/tiktok.png" alt="TikTok" className="w-5 h-5 object-contain" />
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTikTok ? 'scale-110 ring-2 ring-black' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/tiktok.png" alt="TikTok" className="w-4 h-4 object-contain" />
         </div>
-        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isCheckatrade ? 'scale-110 ring-2 ring-blue-800' : 'scale-75 opacity-50'}`}>
-          <img src="/platform-logos/checkatrade.png" alt="Checkatrade" className="w-5 h-5 object-contain" />
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isFacebook ? 'scale-110 ring-2 ring-blue-600' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/facebook.png" alt="Facebook" className="w-4 h-4 object-contain" />
+        </div>
+        <div className={`w-7 h-7 rounded-full bg-yellow-400 shadow-lg flex items-center justify-center transition-all duration-300 ${isSnapchat ? 'scale-110 ring-2 ring-yellow-500' : 'scale-75 opacity-50'}`}>
+          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z"/>
+          </svg>
+        </div>
+        <div className={`w-7 h-7 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isCheckatrade ? 'scale-110 ring-2 ring-blue-800' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/checkatrade.png" alt="Checkatrade" className="w-4 h-4 object-contain" />
         </div>
       </div>
 
@@ -446,8 +482,141 @@ export default function PhoneAnimation() {
           </div>
         </div>
 
+        {/* --- FACEBOOK --- */}
+        <div className={`transition-opacity duration-500 absolute inset-0 bg-white ${isFacebook && step > 37 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          {/* Facebook Header */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white">
+            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <div className="flex items-center gap-2">
+              <img src="/platform-logos/facebook.png" alt="Facebook" className="w-5 h-5 object-contain" />
+              <span className="font-bold text-gray-900 text-sm">Best Coffee Co.</span>
+            </div>
+            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+
+          <div className="p-0">
+            {/* Cover Photo */}
+            <div className="h-28 bg-gradient-to-r from-blue-600 to-blue-400 relative">
+              <img src={coffeeImages[0]} alt="Cover" className="w-full h-full object-cover opacity-80" />
+            </div>
+            
+            {/* Profile Section */}
+            <div className="px-4 -mt-12 relative">
+              <div className="w-24 h-24 rounded-full border-4 border-white bg-white overflow-hidden shadow-lg">
+                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              </div>
+              
+              <div className="mt-2">
+                <h2 className="font-bold text-gray-900 text-lg flex items-center gap-1">
+                  Best Coffee Co.
+                  <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </h2>
+                <p className="text-xs text-gray-500">12.4K followers · Coffee Shop</p>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button 
+                  className={`flex-1 py-2 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2
+                    ${fbLiked ? 'bg-gray-100 text-gray-700' : 'bg-[#1877F2] text-white'}
+                  `}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" /></svg>
+                  {fbLoading ? '...' : fbLiked ? 'Liked' : 'Like'}
+                </button>
+                <button className="flex-1 py-2 rounded-lg font-semibold text-sm bg-gray-100 text-gray-700 flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                  Share
+                </button>
+              </div>
+
+              {/* Posts Preview */}
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <img src={profileImage} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-900">Best Coffee Co.</p>
+                    <p className="text-[10px] text-gray-500">2 hours ago</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-700 mb-2">Fresh batch of our signature blend just arrived! ☕✨</p>
+                <div className="rounded-lg overflow-hidden">
+                  <img src={coffeeImages[1]} alt="Post" className="w-full h-24 object-cover" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* --- SNAPCHAT --- */}
+        <div className={`transition-opacity duration-500 absolute inset-0 bg-[#FFFC00] ${isSnapchat && step > 43 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          {/* Snapchat Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#FFFC00]">
+            <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <div className="flex items-center gap-2">
+              <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z"/>
+              </svg>
+              <span className="font-bold text-black text-base">bestcoffeeco</span>
+            </div>
+            <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>
+          </div>
+
+          <div className="bg-white flex-1 rounded-t-3xl mt-2 p-4">
+            {/* Profile Card */}
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-1 mx-auto mb-3">
+                <div className="w-full h-full rounded-full bg-white p-1">
+                  <img src={profileImage} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                </div>
+              </div>
+              <h2 className="font-bold text-black text-lg">bestcoffeeco</h2>
+              <p className="text-gray-500 text-sm">Best Coffee Co. ☕</p>
+              
+              <div className="flex justify-center gap-8 mt-4 text-center">
+                <div>
+                  <div className="font-bold text-black text-lg">2.4K</div>
+                  <div className="text-xs text-gray-500">Score</div>
+                </div>
+                <div>
+                  <div className="font-bold text-black text-lg">847</div>
+                  <div className="text-xs text-gray-500">Friends</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mb-4">
+              <button 
+                className={`flex-1 py-3 rounded-full font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2
+                  ${snapAdded ? 'bg-gray-200 text-gray-700' : 'bg-[#FFFC00] text-black'}
+                `}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                {snapLoading ? '...' : snapAdded ? 'Added' : 'Add Friend'}
+              </button>
+              <button className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+              </button>
+            </div>
+
+            {/* Recent Snaps */}
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs text-gray-500 font-medium mb-3">Recent Stories</p>
+              <div className="flex gap-3">
+                {coffeeImages.slice(0, 3).map((src, i) => (
+                  <div key={i} className="w-16 h-20 rounded-lg overflow-hidden border-2 border-[#FFFC00]">
+                    <img src={src} alt="Story" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* --- CHECKATRADE --- */}
-        <div className={`transition-opacity duration-500 absolute inset-0 bg-white ${isCheckatrade && step > 37 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <div className={`transition-opacity duration-500 absolute inset-0 bg-white ${isCheckatrade && step > 49 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           {/* Checkatrade Header */}
           <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
