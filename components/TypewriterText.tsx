@@ -7,64 +7,73 @@ export default function TypewriterText() {
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setOffset(prev => (prev + 1) % 100);
-    }, 50); // Speed of scrolling
+      setOffset(prev => (prev + 0.3) % 100);
+    }, 30);
     
     return () => clearInterval(interval);
   }, []);
 
-  const text = "WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • ";
+  const text = "WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • WE DO SOCIAL MEDIA • ";
   
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ margin: '-20px' }}>
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 5 }}>
       <svg 
-        viewBox="0 0 340 600" 
+        viewBox="0 0 1200 800" 
         className="w-full h-full"
-        style={{ overflow: 'visible' }}
+        preserveAspectRatio="xMidYMid slice"
+        style={{ minWidth: '100%', minHeight: '100%' }}
       >
         <defs>
-          {/* Define the path that follows the phone border */}
+          {/* Snake path that winds across the page */}
           <path
-            id="phonePath"
-            d="M 50,48 
-               L 290,48 
-               Q 320,48 320,78
-               L 320,522
-               Q 320,552 290,552
-               L 50,552
-               Q 20,552 20,522
-               L 20,78
-               Q 20,48 50,48"
+            id="snakePath"
+            d="M -100,100 
+               Q 200,50 400,150
+               T 800,100
+               T 1200,200
+               T 1000,350
+               T 600,300
+               T 200,400
+               T 0,500
+               T 400,550
+               T 800,480
+               T 1200,600
+               T 900,700
+               T 500,650
+               T 100,750
+               T -100,700"
             fill="none"
           />
         </defs>
         
-        {/* Animated text on path */}
+        {/* Animated text on snake path */}
         <text 
-          className="fill-white font-black text-xl tracking-widest"
+          className="fill-white/80 font-black uppercase"
           style={{ 
-            fontSize: '18px',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
+            fontSize: '48px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            letterSpacing: '0.1em'
           }}
         >
           <textPath 
-            href="#phonePath" 
+            href="#snakePath" 
             startOffset={`${offset}%`}
           >
             {text}
           </textPath>
         </text>
         
-        {/* Second text instance for seamless loop */}
+        {/* Second text for seamless loop */}
         <text 
-          className="fill-white font-black text-xl tracking-widest"
+          className="fill-white/80 font-black uppercase"
           style={{ 
-            fontSize: '18px',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
+            fontSize: '48px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            letterSpacing: '0.1em'
           }}
         >
           <textPath 
-            href="#phonePath" 
+            href="#snakePath" 
             startOffset={`${offset - 100}%`}
           >
             {text}

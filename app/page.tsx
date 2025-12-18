@@ -19,6 +19,9 @@ export default function Home() {
             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&auto=format&fit=crop&w=2074&q=80')] bg-cover bg-center mix-blend-overlay opacity-20"></div>
           </div>
           
+          {/* Snake Text Effect */}
+          <TypewriterText />
+          
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="text-center lg:text-left">
@@ -76,10 +79,7 @@ export default function Home() {
               </div>
               
               <div className="relative lg:h-[600px] flex items-center justify-center">
-                {/* Typewriter Text Around Phone */}
-                <TypewriterText />
-                
-                <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10 animate-enter-phone">
+                <div className="relative w-full max-w-md aspect-[9/16] bg-gray-900 rounded-[3rem] border-8 border-gray-800 shadow-2xl overflow-hidden ring-1 ring-white/10 animate-enter-phone z-10">
                   <PhoneAnimation />
                   
                   {/* Phone UI Overlay */}
