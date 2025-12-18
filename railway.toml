@@ -1,12 +1,11 @@
 # Railway Deployment Configuration
-# Uncomment and configure as needed
 
-# [build]
-# builder = "nixpacks"
+[build]
+builder = "nixpacks"
 
-# [deploy]
-# startCommand = "npm start"
-# healthcheckPath = "/"
-# healthcheckTimeout = 100
-# restartPolicyType = "on_failure"
-# restartPolicyMaxRetries = 10
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
