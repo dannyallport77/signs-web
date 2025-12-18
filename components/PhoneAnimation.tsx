@@ -176,9 +176,9 @@ export default function PhoneAnimation() {
       </div>
 
       {/* Browser Bar */}
-      <div className="bg-gray-100 border-b border-gray-200 p-2 flex items-center gap-2 z-20 relative">
-        <div className="flex-1 bg-white rounded-md h-6 px-2 flex items-center text-[10px] text-gray-500 transition-all">
-          <span className="mr-1">🔒</span> {getUrl()}
+      <div className="bg-gray-100 border-b border-gray-200 p-3 flex items-center gap-2 z-20 relative">
+        <div className="flex-1 bg-white rounded-lg h-10 px-4 flex items-center text-base text-gray-600 font-medium shadow-sm transition-all">
+          <span className="mr-2 text-green-600">🔒</span> {getUrl()}
         </div>
       </div>
 
