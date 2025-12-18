@@ -26,7 +26,7 @@ export default function TypewriterText() {
     <>
       {/* Top text - left to right */}
       <div className="absolute -top-12 left-0 right-0 overflow-hidden pointer-events-none">
-        <div className="text-4xl md:text-5xl font-black text-gray-900/10 whitespace-nowrap font-mono tracking-wider">
+        <div className="text-4xl md:text-5xl font-black text-white whitespace-nowrap tracking-wider transition-all duration-300">
           <span className="inline-block">
             {fullText.slice(0, displayedChars)}
             <span className="animate-pulse">|</span>
@@ -36,7 +36,7 @@ export default function TypewriterText() {
       
       {/* Bottom text - right to left */}
       <div className="absolute -bottom-12 left-0 right-0 overflow-hidden pointer-events-none">
-        <div className="text-4xl md:text-5xl font-black text-gray-900/10 whitespace-nowrap font-mono tracking-wider text-right">
+        <div className="text-4xl md:text-5xl font-black text-white whitespace-nowrap tracking-wider text-right transition-all duration-300">
           <span className="inline-block">
             <span className="animate-pulse">|</span>
             {fullText.slice(0, displayedChars).split('').reverse().join('')}
@@ -47,7 +47,7 @@ export default function TypewriterText() {
       {/* Left side text - vertical */}
       <div className="absolute -left-16 top-0 bottom-0 overflow-hidden pointer-events-none hidden lg:flex items-center">
         <div 
-          className="text-4xl md:text-5xl font-black text-gray-900/10 whitespace-nowrap font-mono tracking-wider"
+          className="text-4xl md:text-5xl font-black text-white whitespace-nowrap tracking-wider transition-all duration-300"
           style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
           <span className="inline-block">
@@ -60,7 +60,7 @@ export default function TypewriterText() {
       {/* Right side text - vertical */}
       <div className="absolute -right-16 top-0 bottom-0 overflow-hidden pointer-events-none hidden lg:flex items-center">
         <div 
-          className="text-4xl md:text-5xl font-black text-gray-900/10 whitespace-nowrap font-mono tracking-wider"
+          className="text-4xl md:text-5xl font-black text-white whitespace-nowrap tracking-wider transition-all duration-300"
           style={{ writingMode: 'vertical-lr' }}
         >
           <span className="inline-block">
