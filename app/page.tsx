@@ -58,6 +58,19 @@ export default function Home() {
                     Lifetime Warranty
                   </div>
                 </div>
+                
+                {/* Platform Logos */}
+                <div className="mt-10 pt-8 border-t border-white/10">
+                  <p className="text-gray-500 text-xs uppercase tracking-wider mb-4 text-center lg:text-left">Works with all major platforms</p>
+                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6">
+                    <img src="/platform-logos/google.png" alt="Google" className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                    <img src="/platform-logos/trustpilot.png" alt="Trustpilot" className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                    <img src="/platform-logos/facebook.png" alt="Facebook" className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                    <img src="/platform-logos/instagram.png" alt="Instagram" className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                    <img src="/platform-logos/tiktok.png" alt="TikTok" className="h-8 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                    <img src="/platform-logos/tripadvisor.png" alt="TripAdvisor" className="h-6 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
               </div>
               
               <div className="relative lg:h-[600px] flex items-center justify-center">
@@ -163,15 +176,15 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-gray-900">Why Businesses Love Us</h2>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <FeatureCard
+              <FeatureCardWithLogo
                 title="Google Reviews"
                 description="Direct customers straight to your Google 5-star review page."
-                icon="⭐"
+                logo="/platform-logos/google.png"
               />
-              <FeatureCard
+              <FeatureCardWithLogo
                 title="Social Media"
                 description="Grow your Instagram, TikTok, or Facebook following instantly."
-                icon="📱"
+                logos={["/platform-logos/instagram.png", "/platform-logos/tiktok.png", "/platform-logos/facebook.png"]}
               />
               <FeatureCard
                 title="Easy Management"
@@ -183,10 +196,10 @@ export default function Home() {
                 description="Track how many taps each sign gets to measure performance."
                 icon="📊"
               />
-              <FeatureCard
-                title="Premium Quality"
-                description="Durable, scratch-resistant materials built for daily business use."
-                icon="💎"
+              <FeatureCardWithLogo
+                title="Trustpilot & More"
+                description="Support for Trustpilot, Checkatrade, TripAdvisor, and more."
+                logos={["/platform-logos/trustpilot.png", "/platform-logos/checkatrade.png", "/platform-logos/tripadvisor.png"]}
               />
               <FeatureCard
                 title="Secure"
@@ -296,6 +309,33 @@ function FeatureCard({ title, description, icon }: FeatureCardProps) {
     <div className="bg-gray-100 rounded-2xl shadow-sm p-8 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:-translate-y-1">
       <div className="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-3xl mb-6">
         {icon}
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
+      <p className="text-gray-600 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+interface FeatureCardWithLogoProps {
+  title: string;
+  description: string;
+  logo?: string;
+  logos?: string[];
+}
+
+function FeatureCardWithLogo({ title, description, logo, logos }: FeatureCardWithLogoProps) {
+  return (
+    <div className="bg-gray-100 rounded-2xl shadow-sm p-8 hover:shadow-xl transition-all duration-300 border border-gray-100 hover:-translate-y-1">
+      <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-6 shadow-sm">
+        {logo ? (
+          <img src={logo} alt={title} className="w-10 h-10 object-contain" />
+        ) : logos ? (
+          <div className="flex -space-x-2">
+            {logos.slice(0, 3).map((l, i) => (
+              <img key={i} src={l} alt="" className="w-7 h-7 object-contain rounded-full bg-white shadow-sm ring-2 ring-white" />
+            ))}
+          </div>
+        ) : null}
       </div>
       <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
       <p className="text-gray-600 leading-relaxed">{description}</p>

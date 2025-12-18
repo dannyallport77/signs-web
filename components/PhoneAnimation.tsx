@@ -147,6 +147,25 @@ export default function PhoneAnimation() {
 
   return (
     <div className="w-full h-full bg-white relative overflow-hidden font-sans select-none">
+      {/* Platform Indicator */}
+      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-50 flex gap-2">
+        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isGoogle ? 'scale-110 ring-2 ring-blue-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/google.png" alt="Google" className="w-5 h-5 object-contain" />
+        </div>
+        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTrustpilot ? 'scale-110 ring-2 ring-green-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/trustpilot.png" alt="Trustpilot" className="w-5 h-5 object-contain" />
+        </div>
+        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isInstagram ? 'scale-110 ring-2 ring-pink-500' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/instagram.png" alt="Instagram" className="w-5 h-5 object-contain" />
+        </div>
+        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isTikTok ? 'scale-110 ring-2 ring-black' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/tiktok.png" alt="TikTok" className="w-5 h-5 object-contain" />
+        </div>
+        <div className={`w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center transition-all duration-300 ${isCheckatrade ? 'scale-110 ring-2 ring-blue-800' : 'scale-75 opacity-50'}`}>
+          <img src="/platform-logos/checkatrade.png" alt="Checkatrade" className="w-5 h-5 object-contain" />
+        </div>
+      </div>
+
       {/* Status Bar */}
       <div className="h-6 bg-black text-white flex justify-between items-center px-4 text-[10px] font-medium z-20 relative">
         <span>9:41</span>
@@ -180,7 +199,10 @@ export default function PhoneAnimation() {
           {/* Google Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-gray-500 text-xl">✕</span>
-            <span className="font-medium text-gray-700">Rate and review</span>
+            <div className="flex items-center gap-2">
+              <img src="/platform-logos/google.png" alt="Google" className="w-5 h-5 object-contain" />
+              <span className="font-medium text-gray-700">Rate and review</span>
+            </div>
             <button 
               className={`font-medium text-sm transition-colors ${googlePosted ? 'text-blue-600' : googleStars > 0 ? 'text-blue-600' : 'text-gray-300'}`}
             >
@@ -231,10 +253,7 @@ export default function PhoneAnimation() {
           {/* Trustpilot Header */}
           <div className="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
-              <svg className="w-8 h-8 text-[#00b67a]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 1L15.39 7.86L23 8.97L17.5 14.33L18.8 21.91L12 18.33L5.2 21.91L6.5 14.33L1 8.97L8.61 7.86L12 1Z" />
-              </svg>
-              <span className="font-bold text-gray-900 text-lg tracking-tight">Trustpilot</span>
+              <img src="/platform-logos/trustpilot.png" alt="Trustpilot" className="h-8 w-auto object-contain" />
             </div>
             <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
                <img src={profileImage} alt="User" className="w-full h-full object-cover" />
@@ -296,7 +315,10 @@ export default function PhoneAnimation() {
           {/* Instagram Header */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
             <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            <span className="font-bold text-gray-900 text-sm">best_coffee_co</span>
+            <div className="flex items-center gap-2">
+              <img src="/platform-logos/instagram.png" alt="Instagram" className="w-5 h-5 object-contain" />
+              <span className="font-bold text-gray-900 text-sm">best_coffee_co</span>
+            </div>
             <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>
           </div>
 
@@ -372,7 +394,10 @@ export default function PhoneAnimation() {
           {/* TikTok Header */}
           <div className="flex items-center justify-between px-4 py-3">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            <span className="font-bold text-base">Best Coffee Co.</span>
+            <div className="flex items-center gap-2">
+              <img src="/platform-logos/tiktok.png" alt="TikTok" className="w-5 h-5 object-contain" />
+              <span className="font-bold text-base">Best Coffee Co.</span>
+            </div>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>
           </div>
 
@@ -426,11 +451,7 @@ export default function PhoneAnimation() {
           {/* Checkatrade Header */}
           <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-2">
-              <svg className="w-8 h-8" viewBox="0 0 176 169" fill="none">
-                <path fill="#040154" d="M94.568 71.818c-2.607 4.12-5.1 8.31-7.524 12.535-2.229-3.43-4.469-6.849-6.732-10.279l-.023-.023c-4.411-6.526-31.27 2.567-28.26 7.367 6.215 9.38 20.092 30.72 20.793 31.791 3.24 4.892 8.593 5.399 19.047 2.878 5.606-1.566 8.156-6.987 9.029-8.99.77-1.726 4.848-10.463 7.065-14.768a324.53 324.53 0 0 1 23.021-38.271 321.655 321.655 0 0 1 6.181-8.53 333.407 333.407 0 0 1 13.612-17c.92-1.07 1.85-2.14 2.78-3.2 5.986-6.814 15.635-16.402 21.907-22.905 2.609-2.717-18.598-4.225-25.571 2.198-6.95 6.688-16.783 16.978-23.182 24.252a336.937 336.937 0 0 0-15.543 19.038c-7.561 9.99-16.599 23.906-16.6 23.907Z" />
-                <path fill="#FF3F3F" d="M118.302 117.584c-6.193 16.379-22.379 24.689-39.84 24.689-26.939 0-47.02-19.74-47.02-53.672s19.874-53.672 47.02-53.672c8.776 0 16.129 1.669 22.975 5.398l16.865-20.143c-10.845-6.93-24.47-10.98-39.852-10.98-44.147.01-77.036 29.281-77.036 79.409 0 50.127 33.555 79.385 77.048 79.385 31.821 0 55.049-17.254 63.963-41.609l-24.123-8.805Z" />
-              </svg>
-              <span className="font-bold italic text-lg text-[#2d2e83]">Checkatrade</span>
+              <img src="/platform-logos/checkatrade.png" alt="Checkatrade" className="h-8 w-auto object-contain" />
             </div>
             <div className="text-gray-400">✕</div>
           </div>
