@@ -96,6 +96,51 @@ model StockMovement {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Social Media / Action Types - Master list of all available options
+// Never delete records - use isActive=false for removal to preserve historical data
+model SocialMediaType {
+  id              String   @id @default(cuid())
+  key             String   @unique // e.g., "google", "facebook", "fruit_machine_win"
+  name            String   // Display name e.g., "Google Reviews", "Facebook"
+  category        String   // "review_platform", "social_media", "promotion", "other"
+  iconUrl         String?  // Optional icon URL
+  colorHex        String?  // Brand color e.g., "#4285F4" for Google
+  isActive        Boolean  @default(true) // Soft delete - never remove to preserve history
+  sortOrder       Int      @default(0) // For display ordering
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  tagInteractions NFCTagInteraction[]
+  
+  @@index([category])
+  @@index([isActive])
+}
+
+// Customer Site - stores customer contact details per business site
+model CustomerSite {
+  id              String   @id @default(cuid())
+  placeId         String   @unique // Google Place ID or business identifier
+  businessName    String
+  businessAddress String?
+  
+  // Customer contact details
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?  // User who created this record
+  
+  // Relations
+  nfcTags         NFCTag[]
+  invoices        Invoice[]
+  
+  @@index([placeId])
+  @@index([customerEmail])
+}
+
 // NFC Tags (for tracking written tags)
 model NFCTag {
   id              String   @id @default(cuid())
@@ -107,6 +152,88 @@ model NFCTag {
   longitude       Float?
   writtenAt       DateTime @default(now())
   writtenBy       String?  // User who wrote the tag
+  tagUid          String?  // Physical tag UID if known
+  
+  // Customer site relation
+  customerSiteId  String?
+  customerSite    CustomerSite? @relation(fields: [customerSiteId], references: [id])
+  
+  // Trial/Payment tracking
+  salePrice       Float?   // Sale price in GBP, null = trial
+  isTrial         Boolean  @default(true) // True if tag is on trial
+  trialStartDate  DateTime @default(now()) // When trial started
+  trialDays       Int      @default(7) // Number of trial days allowed
+  isPaid          Boolean  @default(false) // True if payment received
+  paidAt          DateTime? // When payment was received
+  paymentId       String?  // Stripe payment/session ID
+  paymentAmount   Float?   // Amount paid in GBP
+  
+  // Tag lifecycle tracking
+  status          String   @default("active") // active, erased, replaced
+  erasedAt        DateTime? // When tag was erased/overwritten
+  erasedBy        String?  // User who erased/overwrote the tag
+  replacedByTagId String?  // ID of the new tag that replaced this one
+  
+  interactions    NFCTagInteraction[]
+  
+  @@index([placeId])
+  @@index([tagUid])
+  @@index([isTrial])
+  @@index([isPaid])
+  @@index([customerSiteId])
+  @@index([status])
+}
+
+// NFC Tag Interactions - Logs EVERY tag write AND read with full details
+model NFCTagInteraction {
+  id                  String   @id @default(cuid())
+  nfcTagId            String?  // Optional link to NFCTag if known
+  nfcTag              NFCTag?  @relation(fields: [nfcTagId], references: [id], onDelete: SetNull)
+  tagUid              String?  // Physical tag UID - unique identifier for each physical tag
+  
+  // Interaction type
+  interactionType     String   // "write" or "read"
+  
+  // Business/Site identification
+  siteId              String   // placeId or business identifier (site name)
+  businessName        String?
+  businessAddress     String?
+  latitude            Float?
+  longitude           Float?
+  
+  // Action taken (what the user chose)
+  actionType          String?  // e.g., "google_review", "instagram", "fruit_machine", "wifi_connect"
+  socialMediaTypeId   String?  // Reference to SocialMediaType
+  socialMediaType     SocialMediaType? @relation(fields: [socialMediaTypeId], references: [id], onDelete: SetNull)
+  
+  // Promotion-specific fields (for fruit machine etc)
+  promotionId         String?
+  promotionResult     String?  // "win", "lose", null
+  prizeType           String?  // "gift", "cash", etc
+  prizeName           String?
+  prizeValue          String?
+  
+  // URL/data written or accessed
+  targetUrl           String?
+  tagData             String?  @db.Text // JSON of any additional data
+  
+  // Metadata
+  userAgent           String?
+  ipAddress           String?
+  deviceInfo          String?
+  userId              String?  // User who performed the action (for writes)
+  
+  timestamp           DateTime @default(now())
+  createdAt           DateTime @default(now())
+  
+  @@index([nfcTagId])
+  @@index([tagUid])
+  @@index([interactionType])
+  @@index([siteId])
+  @@index([actionType])
+  @@index([socialMediaTypeId])
+  @@index([timestamp])
+  @@index([promotionResult])
 }
 
 model ReviewPlatformMenu {
@@ -222,7 +349,11 @@ model Invoice {
   invoiceNumber   String         @unique
   customerEmail   String
   customerName    String
+  customerPhone   String?        // Customer contact number
   businessId      String?
+  placeId         String?        // Google Place ID for the site
+  businessName    String?        // Business name for this invoice
+  businessAddress String?        // Business address
   totalAmount     Float
   status          String         @default("sent") // sent, viewed, paid, cancelled
   notes           String?
@@ -236,8 +367,16 @@ model Invoice {
   openCount       Int            @default(0)
   lastOpenedAt    DateTime?
   
+  // CustomerSite relation (optional, linked by placeId)
+  customerSiteId  String?
+  customerSite    CustomerSite?  @relation(fields: [customerSiteId], references: [id])
+  
   items           InvoiceItem[]
   opens           InvoiceOpen[]
+  
+  @@index([placeId])
+  @@index([customerEmail])
+  @@index([customerSiteId])
 }
 
 model InvoiceOpen {
@@ -261,11 +400,14 @@ model InvoiceItem {
   quantity        Int
   unitPrice       Float
   totalPrice      Float
+  tagId           String?   // Reference to the NFCTag if this is a tag sale
+  tagUid          String?   // Physical tag UID
   createdAt       DateTime  @default(now())
   
   invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   
   @@index([invoiceId])
+  @@index([tagId])
 }
 
 // E-commerce Product Catalog (New)
@@ -321,7 +463,7 @@ model Promotion {
   giftName       String?
   giftEmoji      String?
   giftValue      String?
-  defaultWinOdds Float    @default(0.004)
+  defaultWinOdds Float    @default(0.15)
   enabled        Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -434,7 +576,7 @@ model FruitMachinePromotion {
   description         String?  @db.Text
   prizes              Json?    // Store PrizeOption[]
   monthlyBudget       Float?
-  winProbability      Float    @default(20) // Percentage
+  winProbability      Float    @default(15) // Percentage
   enabled             Boolean  @default(true)
   
   // Time-bound activation

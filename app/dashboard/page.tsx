@@ -272,7 +272,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <ActionCard
           title="Manage Stock"
           description="View and update inventory levels"
@@ -293,6 +293,13 @@ export default function DashboardPage() {
           icon="📱"
           href="/dashboard/nfc-tags"
           color="blue"
+        />
+        <ActionCard
+          title="Demo Tag"
+          description="Write a showcase demo tag"
+          icon="🎯"
+          href="/dashboard/demo-tag"
+          color="violet"
         />
       </div>
 
@@ -353,7 +360,7 @@ interface ActionCardProps {
   description: string;
   icon: string;
   href: string;
-  color: 'indigo' | 'purple' | 'blue';
+  color: 'indigo' | 'purple' | 'blue' | 'violet';
 }
 
 function ActionCard({ title, description, icon, href, color }: ActionCardProps) {
@@ -361,6 +368,7 @@ function ActionCard({ title, description, icon, href, color }: ActionCardProps) 
     indigo: 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
     purple: 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
     blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
+    violet: 'from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700',
   };
 
   return (

@@ -24,7 +24,7 @@ async function testFruitMachinePromotion() {
         giftName: '50% Off',
         giftEmoji: '🎁',
         giftValue: '50',
-        defaultWinOdds: 0.004,
+        defaultWinOdds: 0.15,
         enabled: true,
       },
     });

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import GameSelector from '@/components/GameSelector';
+import TrialBanner from '@/components/TrialBanner';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,21 +89,28 @@ export default async function FruitMachinePage({
     : undefined;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col items-center justify-center p-4">
-      <GameSelector
-        promotionId={promotionData.id}
-        placeId={promotionData.placeId || placeId || ''}
-        businessId={businessId}
-        businessName={displayBusinessName}
-        giftName={giftName || 'Prize'}
-        giftEmoji={giftEmoji || '🎁'}
-        prizes={prizes}
-        winOdds={promotionData.defaultWinOdds || (promotionData.winProbability ? promotionData.winProbability / 100 : 0.004)}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col">
+      {/* Trial Banner - shows when ?trial=true is in URL */}
+      <Suspense fallback={null}>
+        <TrialBanner />
+      </Suspense>
       
-      <p className="text-center text-xs text-slate-500 mt-12">
-        Powered by Review Signs • One spin per visit
-      </p>
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <GameSelector
+          promotionId={promotionData.id}
+          placeId={promotionData.placeId || placeId || ''}
+          businessId={businessId}
+          businessName={displayBusinessName}
+          giftName={giftName || 'Prize'}
+          giftEmoji={giftEmoji || '🎁'}
+          prizes={prizes}
+          winOdds={promotionData.defaultWinOdds || (promotionData.winProbability ? promotionData.winProbability / 100 : 0.004)}
+        />
+        
+        <p className="text-center text-xs text-slate-500 mt-12">
+          Powered by Review Signs • One spin per visit
+        </p>
+      </div>
     </div>
   );
 }

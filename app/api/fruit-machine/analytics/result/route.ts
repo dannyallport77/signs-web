@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export async function POST(request: Request) {
   try {
@@ -28,22 +28,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // Record the result event
-    const result = await prisma.fruitMachineAnalytics.create({
-      data: {
-        placeId,
-        businessId: businessId || null,
-        businessName: businessName || null,
-        promotionId: promotionId || null,
-        promotionName: promotionName || null,
-        eventType: won ? 'win' : 'loss',
-        gameType: gameType || null,
-        machineType: machineType || null,
-        won: won || false,
-        prizeType: prizeType || null,
-        prizeName: prizeName || null,
-        prizeAmount: prizeAmount ? parseFloat(String(prizeAmount)) : null,
-        timestamp: spinCompletedAt ? new Date(spinCompletedAt) : new Date(),
+    // Record to NFCTagInteraction (unified system)
+    const result = await nfcTagInteractionService.logRead({
+      siteId: placeId,
+      businessName: businessName || undefined,
+      actionType: gameType || 'fruit_machine',
+      promotionId: promotionId || undefined,
+      promotionResult: won ? 'win' : 'lose',
+      prizeType: prizeType || undefined,
+      prizeName: prizeName || undefined,
+      prizeValue: prizeAmount ? String(prizeAmount) : undefined,
+      tagData: {
+        businessId,
+        promotionName,
+        resultEmoji,
+        gameType,
+        machineType,
+        spinStartedAt,
+        spinCompletedAt,
       },
     });
 

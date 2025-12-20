@@ -1,8 +1,10 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import { Suspense } from 'react';
 import { prisma } from '@/lib/prisma';
 import { PLATFORM_PRESET_MAP, PlatformKey } from '@/lib/reviewPlatforms';
+import TrialBanner from '@/components/TrialBanner';
 
 type Params = Promise<{ slug: string }>;
 
@@ -47,6 +49,11 @@ export default async function ShortlinkRedirect({ params }: { params: Params }) 
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+      {/* Trial Banner - shows when ?trial=true is in URL */}
+      <Suspense fallback={null}>
+        <TrialBanner />
+      </Suspense>
+      
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="text-center space-y-4">
           {menu.logoUrl ? (

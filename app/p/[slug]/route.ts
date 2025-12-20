@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
+import { nfcTagService } from '@/lib/services/nfcTagService';
 
 export async function GET(
   request: NextRequest,
@@ -16,20 +18,182 @@ export async function GET(
       return new NextResponse('Tag not found', { status: 404 });
     }
 
+    // Check if there's an NFCTag record for this preprogrammed tag (for trial tracking)
+    let isTrialTag = false;
+    let trialDaysRemaining = 0;
+    let nfcTagId: string | null = null;
+    let needsSoftwareUpdate = false;
+    
+    if (tag.tagUid) {
+      const nfcTag = await nfcTagService.getTag(tag.tagUid);
+      
+      if (nfcTag) {
+        const trialStatus = await nfcTagService.getTrialStatus(tag.tagUid);
+        nfcTagId = nfcTag.id;
+        
+        // Check if tag has incomplete data (missing customer site ID or sale price)
+        // Tags written before the customer details feature won't have customerSiteId
+        if (!nfcTag.customerSiteId) {
+          needsSoftwareUpdate = true;
+        }
+        
+        // If trial is expired and not paid, redirect to trial-expired page
+        if (trialStatus.isTrial && !trialStatus.isPaid && trialStatus.isExpired) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://review-signs.co.uk';
+          return NextResponse.redirect(`${baseUrl}/trial-expired?tag=${nfcTag.id}`);
+        }
+        
+        // Check if still on trial (not expired, not paid)
+        if (trialStatus.isTrial && !trialStatus.isPaid) {
+          isTrialTag = true;
+          trialDaysRemaining = trialStatus.daysRemaining;
+        }
+      } else {
+        // NFCTag record doesn't exist - needs software update
+        needsSoftwareUpdate = true;
+      }
+    } else {
+      // No tagUid associated - needs software update
+      needsSoftwareUpdate = true;
+    }
+    
+    // Show software update message for tags with incomplete data
+    if (needsSoftwareUpdate) {
+      return new NextResponse(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Software Update Required - Review Signs</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+              body { 
+                font-family: system-ui, -apple-system, sans-serif; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                min-height: 100vh; 
+                margin: 0; 
+                padding: 1rem;
+                background: linear-gradient(135deg, #fef3c7 0%, #fbbf24 100%);
+              }
+              .card { 
+                background: white; 
+                padding: 2rem; 
+                border-radius: 1.5rem; 
+                box-shadow: 0 20px 60px rgb(0 0 0 / 0.2); 
+                max-width: 90%; 
+                width: 420px; 
+                text-align: center; 
+              }
+              .icon { 
+                font-size: 4rem; 
+                margin-bottom: 1rem; 
+              }
+              h1 { 
+                font-size: 1.5rem; 
+                margin-bottom: 0.75rem; 
+                color: #92400e; 
+              }
+              .message { 
+                color: #78350f; 
+                margin-bottom: 1.5rem; 
+                line-height: 1.6; 
+              }
+              .phone-box { 
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                padding: 1.25rem; 
+                border-radius: 1rem; 
+                margin-bottom: 1rem;
+              }
+              .phone-label { 
+                color: rgba(255,255,255,0.9); 
+                font-size: 0.875rem; 
+                margin-bottom: 0.5rem; 
+              }
+              .phone-number { 
+                color: white; 
+                font-size: 1.75rem; 
+                font-weight: bold; 
+                text-decoration: none;
+                display: block;
+              }
+              .phone-number:hover {
+                text-decoration: underline;
+              }
+              .free-badge { 
+                display: inline-block;
+                background: #fbbf24; 
+                color: #78350f; 
+                padding: 0.5rem 1rem; 
+                border-radius: 2rem; 
+                font-weight: 600; 
+                font-size: 0.875rem;
+                margin-top: 0.5rem;
+              }
+              .footer { 
+                color: #a8a29e; 
+                font-size: 0.75rem; 
+                margin-top: 1.5rem; 
+              }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="icon">🔄</div>
+              <h1>Software Update Required</h1>
+              <p class="message">
+                Your tag requires a software update to continue working properly. 
+                Please call us and we will come and update it for you.
+              </p>
+              <div class="phone-box">
+                <div class="phone-label">Call us now:</div>
+                <a href="tel:07484684658" class="phone-number">07484 684658</a>
+              </div>
+              <span class="free-badge">✓ FREE OF CHARGE</span>
+              <p class="footer">Update will be completed immediately</p>
+            </div>
+          </body>
+        </html>
+        `,
+        { 
+          status: 200,
+          headers: { 'Content-Type': 'text/html' }
+        }
+      );
+    }
+
     // Log the scan
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
     const referrer = request.headers.get('referer') || null;
 
-    // Fire and forget to not slow down redirect
-    prisma.preprogrammedTagScan.create({
-      data: {
+    // Determine action type from target URL
+    let actionType = 'preprogrammed_tag';
+    if (tag.targetUrl) {
+      const url = tag.targetUrl.toLowerCase();
+      if (url.includes('google') || url.includes('g.page')) actionType = 'google';
+      else if (url.includes('facebook')) actionType = 'facebook';
+      else if (url.includes('instagram')) actionType = 'instagram';
+      else if (url.includes('tripadvisor')) actionType = 'tripadvisor';
+    }
+
+    // Fire and forget to not slow down redirect - log to NFCTagInteraction
+    nfcTagInteractionService.logRead({
+      siteId: tag.placeId || slug,
+      businessName: tag.businessName || undefined,
+      businessAddress: tag.businessAddress || undefined,
+      actionType,
+      targetUrl: tag.targetUrl || undefined,
+      userAgent,
+      ipAddress,
+      tagData: {
         preprogrammedTagId: tag.id,
-        userAgent,
-        ipAddress,
+        tagUid: tag.tagUid,
+        slug,
+        wasLinked: tag.status === 'linked',
         referrer,
-        wasLinked: tag.status === 'linked'
-      }
+      },
     }).catch(err => console.error('Failed to log scan:', err));
 
     // If tag is deactivated
@@ -105,6 +269,19 @@ export async function GET(
     }
 
     // Tag is linked - redirect to target URL
+    // If it's a trial tag, show the trial banner page first
+    if (isTrialTag && tag.targetUrl) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://review-signs.co.uk';
+      const redirectParams = new URLSearchParams({
+        url: encodeURIComponent(tag.targetUrl),
+        business: encodeURIComponent(tag.businessName || ''),
+        trial: 'true',
+        days: trialDaysRemaining.toString(),
+        ...(nfcTagId && { tag: nfcTagId }),
+      });
+      return NextResponse.redirect(`${baseUrl}/tag-redirect?${redirectParams.toString()}`);
+    }
+    
     return NextResponse.redirect(tag.targetUrl);
 
   } catch (error) {

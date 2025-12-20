@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,33 +40,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user owns this business
-    // const business = await prisma.business.findFirst({
-    //   where: {
-    //     id: data.businessId,
-    //     createdBy: session.user.id,
-    //   },
-    // });
-
-    // if (!business) {
-    //   return NextResponse.json(
-    //     { error: 'Business not found or access denied' },
-    //     { status: 403 }
-    //   );
-    // }
-
-    // Record the result in the database
-    // Note: You'll need to create this table in your Prisma schema
-    const result = await recordFruitMachineResult({
-      businessId: data.businessId,
-      placeId: data.placeId,
+    // Record to unified NFCTagInteraction
+    const result = await nfcTagInteractionService.logRead({
+      siteId: data.placeId || data.businessId,
+      actionType: 'fruit_machine',
       promotionId: data.promotionId,
-      winnerCode: data.winnerCode,
+      promotionResult: data.isWin ? 'win' : 'lose',
       prizeType: data.prizeType,
       prizeName: data.prizeName,
-      prizeValue: data.prizeValue,
-      timestamp: new Date(data.timestamp),
-      isWin: data.isWin,
+      prizeValue: data.prizeValue ? String(data.prizeValue) : undefined,
+      metadata: {
+        businessId: data.businessId,
+        winnerCode: data.winnerCode,
+        originalTimestamp: data.timestamp,
+      },
     });
 
     return NextResponse.json({
@@ -99,70 +86,56 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const businessId = searchParams.get('businessId');
+    const placeId = searchParams.get('placeId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100', 10);
 
-    // Verify user owns the business
-    // const business = await prisma.business.findFirst({
-    //   where: {
-    //     id: businessId || undefined,
-    //     createdBy: session.user.id,
-    //   },
-    // });
-
-    // if (!business) {
-    //   return NextResponse.json(
-    //     { error: 'Business not found or access denied' },
-    //     { status: 403 }
-    //   );
-    // }
-
-    // Build query
-    const where: any = { businessId };
-
-    if (startDate || endDate) {
-      where.timestamp = {};
-      if (startDate) {
-        where.timestamp.gte = new Date(startDate);
-      }
-      if (endDate) {
-        where.timestamp.lte = new Date(endDate);
-      }
+    const siteId = placeId || businessId;
+    if (!siteId) {
+      return NextResponse.json(
+        { error: 'Missing businessId or placeId' },
+        { status: 400 }
+      );
     }
 
-    // Fetch results (placeholder - adjust based on your schema)
-    const results = await prisma.$queryRaw`
-      SELECT * FROM fruit_machine_results 
-      WHERE business_id = ${businessId}
-      ${startDate ? `AND timestamp >= ${new Date(startDate)}` : ''}
-      ${endDate ? `AND timestamp <= ${new Date(endDate)}` : ''}
-      ORDER BY timestamp DESC
-      LIMIT ${limit}
-    `.catch(() => []) as any[];
+    // Query unified NFCTagInteraction for fruit machine results
+    const { interactions } = await nfcTagInteractionService.query({
+      siteId,
+      actionType: 'fruit_machine',
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      limit,
+    });
 
     // Calculate statistics
-    const totalResults = results?.length || 0;
-    const wins = (results as any[])?.filter((r) => r.is_win)?.length || 0;
-    const losses = totalResults - wins;
+    const totalResults = interactions.length;
+    const wins = interactions.filter(i => i.promotionResult === 'win').length;
+    const losses = interactions.filter(i => i.promotionResult === 'loss').length;
     const winRate = totalResults > 0 ? (wins / totalResults) * 100 : 0;
 
     // Group by prize
-    const prizeDistribution = (results as any[])?.reduce(
-      (acc: any, r) => {
-        const prizeKey = r.prize_name || 'Unknown';
-        if (!acc[prizeKey]) {
-          acc[prizeKey] = 0;
-        }
-        acc[prizeKey]++;
-        return acc;
-      },
-      {}
-    ) || {};
+    const prizeDistribution = interactions.reduce((acc: Record<string, number>, i) => {
+      const prizeKey = i.prizeName || 'Unknown';
+      acc[prizeKey] = (acc[prizeKey] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Map to expected format
+    const results = interactions.map(i => ({
+      id: i.id,
+      businessId: i.siteId,
+      placeId: i.siteId,
+      promotionId: i.promotionId,
+      prizeType: i.prizeType,
+      prizeName: i.prizeName,
+      prizeValue: i.prizeValue,
+      isWin: i.promotionResult === 'win',
+      timestamp: i.timestamp,
+    }));
 
     return NextResponse.json({
       success: true,
-      business: 'Unknown', // business.name,
       results,
       statistics: {
         totalResults,
@@ -179,39 +152,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Helper function to record a fruit machine result
- * Adjust based on your database schema
- */
-async function recordFruitMachineResult(data: any) {
-  // TODO: Fix Schema Mismatch
-  // The Web App uses 'Promotion' model, but 'FruitMachineResult' model requires a relation to 'FruitMachinePromotion'.
-  // We cannot save 'Promotion' IDs into 'FruitMachineResult' without foreign key errors.
-  // For now, we just log the result.
-  
-  console.log('Mock recording result:', data);
-
-  /*
-  return await prisma.fruitMachineResult.create({
-    data: {
-      businessId: data.businessId,
-      placeId: data.placeId,
-      promotionId: data.promotionId, // This would fail FK constraint if ID is from Promotion table
-      winnerCode: data.winnerCode,
-      prizeType: data.prizeType,
-      prizeName: data.prizeName,
-      prizeValue: data.prizeValue ? String(data.prizeValue) : null,
-      isWin: data.isWin,
-      timestamp: data.timestamp,
-    }
-  });
-  */
-
-  return {
-    id: `mock-${Date.now()}`,
-    ...data,
-    createdAt: new Date(),
-  };
 }

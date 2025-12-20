@@ -11,11 +11,17 @@ interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  tagId?: string;
+  tagUid?: string;
 }
 
 interface CreateInvoiceRequest {
   customerEmail: string;
   customerName: string;
+  customerPhone?: string;
+  businessName?: string;
+  businessAddress?: string;
+  placeId?: string;
   items: InvoiceItem[];
   totalAmount: number;
   notes?: string;
@@ -33,8 +39,10 @@ function generateInvoiceNumber(): string {
 async function sendInvoiceEmail(
   toEmail: string,
   customerName: string,
+  customerPhone: string | undefined,
   invoiceNumber: string,
-  pdfBuffer: Buffer
+  pdfBuffer: Buffer,
+  businessName?: string
 ): Promise<boolean> {
   try {
     const transporter = nodemailer.createTransport({
@@ -47,16 +55,43 @@ async function sendInvoiceEmail(
       },
     });
 
+    const businessRef = businessName ? ` for ${businessName}` : '';
+    const phoneInfo = customerPhone ? `<p>Contact: ${customerPhone}</p>` : '';
+
     await transporter.sendMail({
       from: process.env.EMAIL_FROM || 'invoices@review-signs.co.uk',
       to: toEmail,
-      subject: `Invoice ${invoiceNumber} - Review Signs`,
+      subject: `Invoice ${invoiceNumber}${businessRef} - Review Signs`,
       html: `
-        <h2>Hello ${customerName},</h2>
-        <p>Please find your invoice attached.</p>
-        <p>Invoice Number: <strong>${invoiceNumber}</strong></p>
-        <p>Thank you for your business!</p>
-        <p>Best regards,<br/>Review Signs Team</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #4f46e5; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">Review Signs</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Invoice</p>
+          </div>
+          
+          <div style="padding: 20px; background: #f9fafb;">
+            <h2 style="color: #1f2937;">Hello ${customerName},</h2>
+            <p style="color: #6b7280;">Please find your invoice attached to this email.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #6b7280;"><strong>Invoice Number:</strong></p>
+              <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #4f46e5;">${invoiceNumber}</p>
+              ${businessRef ? `<p style="margin: 10px 0 0 0; color: #6b7280;">${businessRef}</p>` : ''}
+            </div>
+            
+            ${phoneInfo}
+            
+            <p style="color: #6b7280;">Thank you for your business!</p>
+            <p style="color: #6b7280;">If you have any questions, please don't hesitate to contact us.</p>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+            
+            <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+              Review Signs • NFC Review Tags<br>
+              <a href="https://review-signs.co.uk" style="color: #4f46e5;">review-signs.co.uk</a>
+            </p>
+          </div>
+        </div>
       `,
       attachments: [
         {
@@ -108,12 +143,26 @@ export async function POST(request: NextRequest) {
     // Generate invoice number
     const invoiceNumber = generateInvoiceNumber();
 
+    // Look up CustomerSite by placeId to link invoice
+    let customerSiteId: string | undefined;
+    if (body.placeId) {
+      const customerSite = await prisma.customerSite.findUnique({
+        where: { placeId: body.placeId }
+      });
+      customerSiteId = customerSite?.id;
+    }
+
     // Create invoice in database
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
         customerEmail: body.customerEmail,
         customerName: body.customerName,
+        customerPhone: body.customerPhone,
+        businessName: body.businessName,
+        businessAddress: body.businessAddress,
+        placeId: body.placeId,
+        customerSiteId,
         totalAmount: body.totalAmount,
         notes: body.notes,
         items: {
@@ -123,6 +172,8 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
+            tagId: item.tagId,
+            tagUid: item.tagUid,
           })),
         },
       },
@@ -151,8 +202,10 @@ export async function POST(request: NextRequest) {
         await sendInvoiceEmail(
           body.customerEmail,
           body.customerName,
+          body.customerPhone,
           invoiceNumber,
-          pdfBuffer
+          pdfBuffer,
+          body.businessName
         );
 
         // Update invoice status to sent

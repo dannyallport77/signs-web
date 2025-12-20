@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export async function GET(
   request: NextRequest,
@@ -46,18 +47,20 @@ export async function GET(
       );
     }
 
-    // Log the scan asynchronously (fire and forget to not slow down redirect)
+    // Log the scan to unified NFCTagInteraction (fire and forget)
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
-    const referrer = request.headers.get('referer') || null;
 
-    // We don't await this to ensure fast redirect
-    prisma.smartLinkScan.create({
-      data: {
+    nfcTagInteractionService.logRead({
+      siteId: smartLink.placeId,
+      businessName: smartLink.businessName,
+      actionType: 'smart_link',
+      userAgent,
+      ipAddress,
+      metadata: {
         smartLinkId: smartLink.id,
-        userAgent,
-        ipAddress,
-        referrer
+        slug: smartLink.slug,
+        targetUrl: smartLink.targetUrl,
       }
     }).catch(err => console.error('Failed to log scan:', err));
 

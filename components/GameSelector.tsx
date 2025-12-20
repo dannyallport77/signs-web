@@ -25,7 +25,7 @@ interface GameSelectorProps {
 
 type GameType = 'fruit-machine' | 'scratch-card' | 'spin-wheel';
 
-export default function GameSelector({ promotionId, placeId, businessId, businessName, giftName, giftEmoji, winOdds = 0.004, prizes }: GameSelectorProps) {
+export default function GameSelector({ promotionId, placeId, businessId, businessName, giftName, giftEmoji, winOdds = 0.15, prizes }: GameSelectorProps) {
   const [selectedGame, setSelectedGame] = useState<GameType | null>(null);
   const [gameFinished, setGameFinished] = useState(false);
   const [result, setResult] = useState<{ won: boolean; prize: string } | null>(null);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export async function GET(request: Request) {
   try {
@@ -16,67 +16,55 @@ export async function GET(request: Request) {
       );
     }
 
-    // Build filter
-    const where: any = { placeId };
-    
-    if (promotionId) {
-      where.promotionId = promotionId;
-    }
+    // Get stats from unified NFCTagInteraction system
+    const stats = await nfcTagInteractionService.getStats(
+      placeId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined
+    );
 
-    if (startDate || endDate) {
-      where.timestamp = {};
-      if (startDate) {
-        where.timestamp.gte = new Date(startDate);
-      }
-      if (endDate) {
-        where.timestamp.lte = new Date(endDate);
-      }
-    }
-
-    // Get analytics
-    const events = await prisma.fruitMachineAnalytics.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
+    // Get recent events
+    const { interactions } = await nfcTagInteractionService.query({
+      siteId: placeId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      limit: 100,
     });
 
-    // Calculate stats
-    const stats = {
-      totalScans: events.filter(e => e.eventType === 'scan').length,
-      totalWins: events.filter(e => e.eventType === 'win').length,
-      totalLosses: events.filter(e => e.eventType === 'loss').length,
-      winRate: 0,
-      cashWins: events.filter(e => e.eventType === 'win' && e.prizeType === 'cash').length,
-      totalCashWon: events
-        .filter(e => e.eventType === 'win' && e.prizeType === 'cash')
-        .reduce((sum, e) => sum + (e.prizeAmount || 0), 0),
-      gameTypeBreakdown: {} as Record<string, number>,
-      machineTypeBreakdown: {} as Record<string, number>,
+    // Filter for fruit machine related events
+    const fruitMachineEvents = interactions.filter(i => 
+      i.actionType?.includes('fruit_machine') || i.promotionResult
+    );
+
+    // Build response in expected format
+    const response = {
+      success: true,
+      stats: {
+        totalScans: stats.actionBreakdown['fruit_machine'] || 0,
+        totalWins: stats.promotionResults.wins,
+        totalLosses: stats.promotionResults.losses,
+        winRate: stats.promotionResults.winRate / 100, // Convert from percentage
+        cashWins: fruitMachineEvents.filter(e => e.promotionResult === 'win' && e.prizeType === 'cash').length,
+        totalCashWon: fruitMachineEvents
+          .filter(e => e.promotionResult === 'win' && e.prizeType === 'cash')
+          .reduce((sum, e) => sum + (parseFloat(e.prizeValue || '0') || 0), 0),
+        gameTypeBreakdown: stats.actionBreakdown,
+        machineTypeBreakdown: {},
+      },
+      events: fruitMachineEvents.map(e => ({
+        id: e.id,
+        placeId: e.siteId,
+        businessName: e.businessName,
+        eventType: e.promotionResult ? (e.promotionResult === 'win' ? 'win' : 'loss') : 'scan',
+        won: e.promotionResult === 'win',
+        prizeType: e.prizeType,
+        prizeName: e.prizeName,
+        prizeAmount: e.prizeValue ? parseFloat(e.prizeValue) : null,
+        timestamp: e.timestamp,
+      })),
     };
 
-    // Calculate win rate
-    if (stats.totalWins > 0 || stats.totalLosses > 0) {
-      stats.winRate = stats.totalWins / (stats.totalWins + stats.totalLosses);
-    }
-
-    // Game type breakdown
-    events.forEach(e => {
-      if (e.gameType) {
-        stats.gameTypeBreakdown[e.gameType] = (stats.gameTypeBreakdown[e.gameType] || 0) + 1;
-      }
-    });
-
-    // Machine type breakdown
-    events.forEach(e => {
-      if (e.machineType) {
-        stats.machineTypeBreakdown[e.machineType] = (stats.machineTypeBreakdown[e.machineType] || 0) + 1;
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      stats,
-      events: events.slice(0, 100), // Return last 100 events
-    });
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching analytics:', error);
     return NextResponse.json(

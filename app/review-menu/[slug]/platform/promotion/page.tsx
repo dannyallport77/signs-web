@@ -1,14 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function PromotionPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
   const [promotionId, setPromotionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Pass trial params through
+  const isTrial = searchParams.get('trial');
+  const tagId = searchParams.get('tag');
+  const days = searchParams.get('days');
 
   useEffect(() => {
     const fetchPromotionId = async () => {
@@ -56,9 +62,14 @@ export default function PromotionPage() {
   // Redirect to the fruit machine page with the promotion ID
   useEffect(() => {
     if (promotionId) {
-      window.location.href = `/fruit-machine?promotionId=${promotionId}`;
+      const trialParams = new URLSearchParams();
+      if (isTrial) trialParams.set('trial', isTrial);
+      if (tagId) trialParams.set('tag', tagId);
+      if (days) trialParams.set('days', days);
+      const trialQuery = trialParams.toString();
+      window.location.href = `/fruit-machine?promotionId=${promotionId}${trialQuery ? '&' + trialQuery : ''}`;
     }
-  }, [promotionId]);
+  }, [promotionId, isTrial, tagId, days]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-center p-4">

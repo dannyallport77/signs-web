@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -10,6 +10,50 @@ interface ReviewMenuPageProps {
     slug: string;
     platformId: string;
   }>;
+}
+
+function TrialBannerInline() {
+  const searchParams = useSearchParams();
+  const isTrial = searchParams.get('trial') === 'true';
+  const tagId = searchParams.get('tag');
+  const daysRemaining = parseInt(searchParams.get('days') || '0');
+
+  if (!isTrial) return null;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 bg-red-600 text-white z-50">
+      <div className="max-w-4xl mx-auto px-4 py-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 rounded-full p-2 animate-pulse">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold text-lg flex items-center gap-2">
+                <span className="bg-white text-red-600 px-2 py-0.5 rounded text-sm">TRIAL VERSION</span>
+              </p>
+              <p className="text-red-100 text-sm">
+                {daysRemaining > 0 
+                  ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
+                  : 'Trial period active'}
+                {' '}- Pay £30 to activate
+              </p>
+            </div>
+          </div>
+          {tagId && (
+            <Link
+              href={`/trial-expired?tag=${tagId}`}
+              className="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-red-50 transition-colors whitespace-nowrap shadow-lg"
+            >
+              Pay Now - £30
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PlatformRedirectPage({ params }: ReviewMenuPageProps) {
@@ -114,6 +158,9 @@ export default function PlatformRedirectPage({ params }: ReviewMenuPageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex flex-col items-center justify-center p-4 overflow-hidden">
+      {/* Trial Banner */}
+      <TrialBannerInline />
+      
       {/* Animated background decoration */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute top-10 right-10 w-96 h-96 bg-yellow-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>

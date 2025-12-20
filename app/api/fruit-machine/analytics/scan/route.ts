@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export async function POST(request: Request) {
   try {
@@ -20,16 +20,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Record the scan event
-    const scan = await prisma.fruitMachineAnalytics.create({
-      data: {
-        placeId,
-        businessId: businessId || null,
-        businessName: businessName || null,
-        promotionId: promotionId || null,
-        promotionName: promotionName || null,
+    // Record to NFCTagInteraction (unified system)
+    const scan = await nfcTagInteractionService.logRead({
+      siteId: placeId,
+      businessName: businessName || undefined,
+      actionType: 'fruit_machine',
+      promotionId: promotionId || undefined,
+      tagData: {
+        businessId,
+        promotionName,
         eventType: 'scan',
-        timestamp: scannedAt ? new Date(scannedAt) : new Date(),
+        scannedAt,
       },
     });
 

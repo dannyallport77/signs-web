@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 
 export async function POST(
   request: NextRequest,
@@ -44,23 +45,29 @@ export async function POST(
       );
     }
 
-    // Log the click
-    const click = await prisma.reviewPlatformClick.create({
-      data: {
-        menuId: menu.id,
+    // Log to NFCTagInteraction (new unified system)
+    const interaction = await nfcTagInteractionService.logRead({
+      siteId: menu.placeId || menu.id,
+      businessName: menu.businessName,
+      businessAddress: menu.businessAddress || undefined,
+      actionType: platform.platformKey,
+      targetUrl: platform.url,
+      userAgent,
+      ipAddress: ip,
+      tagData: {
+        menuSlug: slug,
         platformId: platform.id,
-        ipAddress: ip,
-        userAgent,
-        referrer,
+        platformName: platform.name,
         reviewSubmitted,
-        metadata: metadata ? JSON.stringify({ parsedMetadata: metadata }) : null,
+        referrer,
+        metadata: metadata ? JSON.parse(metadata) : null,
       },
     });
 
     // Return platform URL and click data
     return NextResponse.json({
       success: true,
-      clickId: click.id,
+      clickId: interaction.id,
       platformUrl: platform.url,
       platformName: platform.name,
     });
@@ -81,33 +88,38 @@ export async function GET(
   try {
     const { slug, platformId } = await context.params;
 
-    // Get analytics for this platform
-    const clicks = await prisma.reviewPlatformClick.findMany({
-      where: {
-        platform: {
-          id: platformId,
-          menu: {
-            slug: slug,
-          },
-        },
-      },
-      orderBy: {
-        timestamp: 'desc',
-      },
-      take: 100,
+    // Get the menu to find the siteId
+    const menu = await prisma.reviewPlatformMenu.findUnique({
+      where: { slug },
+      include: { platforms: true },
     });
 
-    const totalClicks = clicks.length;
-    const reviewsSubmitted = clicks.filter((c) => c.reviewSubmitted).length;
+    if (!menu) {
+      return NextResponse.json({ error: 'Menu not found' }, { status: 404 });
+    }
+
+    const platform = menu.platforms.find((p) => p.id === platformId);
+
+    // Get analytics from NFCTagInteraction
+    const { interactions } = await nfcTagInteractionService.query({
+      siteId: menu.placeId || menu.id,
+      actionType: platform?.platformKey,
+      limit: 100,
+    });
+
+    const totalClicks = interactions.length;
 
     return NextResponse.json({
       success: true,
       platformId,
       slug,
       totalClicks,
-      reviewsSubmitted,
-      conversionRate: totalClicks > 0 ? ((reviewsSubmitted / totalClicks) * 100).toFixed(2) : '0.00',
-      recentClicks: clicks.slice(0, 10),
+      recentClicks: interactions.slice(0, 10).map(i => ({
+        id: i.id,
+        timestamp: i.timestamp,
+        userAgent: i.userAgent,
+        ipAddress: i.ipAddress,
+      })),
     });
   } catch (error) {
     console.error('[ANALYTICS_ERROR]', error);
