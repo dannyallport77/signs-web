@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "NFCTag" ADD COLUMN "trialEndPrice" DOUBLE PRECISION;

@@ -14,6 +14,8 @@ export interface CreateTagInput {
   writtenBy?: string;
   salePrice?: number | null; // null = trial
   isTrial?: boolean;
+  trialDays?: number; // Customizable trial period (defaults to 7)
+  trialEndPrice?: number; // Price after trial ends (defaults to 30)
 }
 
 export interface TagPaymentInput {
@@ -29,6 +31,8 @@ export const nfcTagService = {
    */
   async createTag(data: CreateTagInput) {
     const isTrial = data.salePrice === null || data.salePrice === undefined || data.isTrial === true;
+    const customTrialDays = data.trialDays ?? TRIAL_DAYS;
+    const customEndPrice = data.trialEndPrice ?? PAYMENT_PRICE;
     
     const tag = await prisma.nFCTag.create({
       data: {
@@ -43,13 +47,14 @@ export const nfcTagService = {
         salePrice: isTrial ? null : data.salePrice,
         isTrial,
         trialStartDate: new Date(),
-        trialDays: TRIAL_DAYS,
+        trialDays: customTrialDays,
+        trialEndPrice: customEndPrice,
         isPaid: !isTrial && (data.salePrice ?? 0) > 0,
         paidAt: !isTrial ? new Date() : null,
       },
     });
 
-    console.log(`[NFCTag] Created tag: ${tag.id}, trial: ${tag.isTrial}, price: ${tag.salePrice}`);
+    console.log(`[NFCTag] Created tag: ${tag.id}, trial: ${tag.isTrial}, trialDays: ${customTrialDays}, endPrice: £${customEndPrice}`);
     return tag;
   },
 
@@ -100,6 +105,7 @@ export const nfcTagService = {
     trialEnd.setDate(trialEnd.getDate() + tag.trialDays);
     const daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     const isExpired = this.isTrialExpired(tag);
+    const paymentAmount = tag.trialEndPrice ?? PAYMENT_PRICE;
 
     return {
       found: true,
@@ -112,7 +118,7 @@ export const nfcTagService = {
       daysRemaining,
       isExpired,
       paymentRequired: tag.isTrial && !tag.isPaid,
-      paymentAmount: PAYMENT_PRICE,
+      paymentAmount,
     };
   },
 

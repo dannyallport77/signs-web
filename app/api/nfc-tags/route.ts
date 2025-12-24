@@ -16,6 +16,8 @@ export async function POST(request: Request) {
       tagUid,
       salePrice,
       isTrial,
+      trialDays,
+      trialEndPrice,
     } = body;
 
     if (!businessName || !placeId || !reviewUrl) {
@@ -67,6 +69,8 @@ export async function POST(request: Request) {
             salePrice: isTrial ? null : (salePrice ? parseFloat(salePrice) : null),
             isTrial: isTrial ?? true,
             trialStartDate: new Date(),
+            trialDays: trialDays ?? 7,
+            trialEndPrice: trialEndPrice ?? 30,
           }
         });
       } else {
@@ -85,7 +89,8 @@ export async function POST(request: Request) {
             salePrice: isTrial ? null : (salePrice ? parseFloat(salePrice) : null),
             isTrial: isTrial ?? true,
             trialStartDate: new Date(),
-            trialDays: 7,
+            trialDays: trialDays ?? 7,
+            trialEndPrice: trialEndPrice ?? 30,
           }
         });
       }
