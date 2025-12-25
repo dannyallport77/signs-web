@@ -184,12 +184,12 @@ export async function GET(
       businessName: tag.businessName || undefined,
       businessAddress: tag.businessAddress || undefined,
       actionType,
+      tagUid: tag.tagUid || undefined,
       targetUrl: tag.targetUrl || undefined,
       userAgent,
       ipAddress,
       tagData: {
         preprogrammedTagId: tag.id,
-        tagUid: tag.tagUid,
         slug,
         wasLinked: tag.status === 'linked',
         referrer,

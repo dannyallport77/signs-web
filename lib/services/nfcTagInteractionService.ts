@@ -72,9 +72,21 @@ export const nfcTagInteractionService = {
       socialMediaTypeId = socialType.id;
     }
 
+    // If we have a tagUid but no nfcTagId, try to look up the NFCTag record
+    let nfcTagId = data.nfcTagId;
+    if (data.tagUid && !nfcTagId) {
+      const nfcTag = await prisma.nFCTag.findFirst({
+        where: { tagUid: data.tagUid },
+        select: { id: true },
+      });
+      if (nfcTag) {
+        nfcTagId = nfcTag.id;
+      }
+    }
+
     const interaction = await prisma.nFCTagInteraction.create({
       data: {
-        nfcTagId: data.nfcTagId,
+        nfcTagId,
         tagUid: data.tagUid,
         interactionType: 'write',
         siteId: data.siteId,
@@ -112,9 +124,21 @@ export const nfcTagInteractionService = {
       socialMediaTypeId = socialType.id;
     }
 
+    // If we have a tagUid but no nfcTagId, try to look up the NFCTag record
+    let nfcTagId = data.nfcTagId;
+    if (data.tagUid && !nfcTagId) {
+      const nfcTag = await prisma.nFCTag.findFirst({
+        where: { tagUid: data.tagUid },
+        select: { id: true },
+      });
+      if (nfcTag) {
+        nfcTagId = nfcTag.id;
+      }
+    }
+
     const interaction = await prisma.nFCTagInteraction.create({
       data: {
-        nfcTagId: data.nfcTagId,
+        nfcTagId,
         tagUid: data.tagUid,
         interactionType: 'read',
         siteId: data.siteId,
@@ -194,7 +218,13 @@ export const nfcTagInteractionService = {
       }),
     ]);
 
-    return { total, interactions };
+    // Map the data to ensure tagUid is always populated from either source
+    const mappedInteractions = interactions.map(interaction => ({
+      ...interaction,
+      tagUid: interaction.tagUid || interaction.nfcTag?.tagUid || null,
+    }));
+
+    return { total, interactions: mappedInteractions };
   },
 
   /**
@@ -286,7 +316,7 @@ export const nfcTagInteractionService = {
    * Get recent interactions for a site
    */
   async getRecent(siteId: string, limit: number = 20) {
-    return prisma.nFCTagInteraction.findMany({
+    const interactions = await prisma.nFCTagInteraction.findMany({
       where: { siteId },
       include: {
         socialMediaType: true,
@@ -295,6 +325,12 @@ export const nfcTagInteractionService = {
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
+
+    // Map the data to ensure tagUid is always populated from either source
+    return interactions.map(interaction => ({
+      ...interaction,
+      tagUid: interaction.tagUid || interaction.nfcTag?.tagUid || null,
+    }));
   },
 
   /**
