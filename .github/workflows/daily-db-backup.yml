@@ -19,6 +19,8 @@ jobs:
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          # Verify we have the right version
+          pg_dump --version
 
       - name: Create database backup
         env:
@@ -28,7 +30,7 @@ jobs:
           FILENAME="signs-backup-${TIMESTAMP}.dump"
           
           echo "Creating backup: ${FILENAME}"
-          pg_dump "${DATABASE_URL}" -F c -f "${FILENAME}"
+          /usr/lib/postgresql/17/bin/pg_dump "${DATABASE_URL}" -F c -f "${FILENAME}"
           
           # Verify backup was created and has content
           if [ ! -s "${FILENAME}" ]; then
