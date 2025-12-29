@@ -493,10 +493,20 @@ export default function ActivityLogsPage() {
                             </span>
                             {log.user.name || log.user.email}
                           </span>
-                        ) : log.metadata?.email ? (
-                          <span className="text-gray-400">{log.metadata.email}</span>
-                        ) : log.metadata?.userName ? (
-                          <span className="text-gray-400">{log.metadata.userName}</span>
+                        ) : log.metadata?.writtenByName || log.metadata?.writtenByEmail ? (
+                          <span title={log.metadata?.writtenByEmail} className="flex items-center gap-1">
+                            <span className="w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-medium">
+                              {(log.metadata?.writtenByName || log.metadata?.writtenByEmail || '?').charAt(0).toUpperCase()}
+                            </span>
+                            {log.metadata?.writtenByName || log.metadata?.writtenByEmail}
+                          </span>
+                        ) : log.metadata?.userEmail || log.metadata?.email ? (
+                          <span title={log.metadata?.userEmail || log.metadata?.email} className="flex items-center gap-1">
+                            <span className="w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-medium">
+                              {(log.metadata?.userName || log.metadata?.userEmail || log.metadata?.email || '?').charAt(0).toUpperCase()}
+                            </span>
+                            {log.metadata?.userName || log.metadata?.userEmail || log.metadata?.email}
+                          </span>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
@@ -516,24 +526,87 @@ export default function ActivityLogsPage() {
                       <tr key={`${log.id}-details`} className="bg-gray-50">
                         <td colSpan={6} className="px-4 py-3">
                           <div className="text-sm">
-                            <div className="font-medium text-gray-700 mb-2">Event Details</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                            <div className="font-medium text-gray-700 mb-3">Event Details</div>
+                            
+                            {/* Key info cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                              {(log.metadata?.writtenByName || log.metadata?.writtenByEmail) && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Written By</span>
+                                  <span className="font-medium">{log.metadata?.writtenByName || log.metadata?.writtenByEmail}</span>
+                                </div>
+                              )}
+                              {log.metadata?.businessName && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Business</span>
+                                  <span className="font-medium">{log.metadata.businessName}</span>
+                                </div>
+                              )}
+                              {log.metadata?.actionType && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Platform</span>
+                                  <span className="font-medium capitalize">{log.metadata.actionType}</span>
+                                </div>
+                              )}
+                              {log.metadata?.isTrial !== undefined && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Sale Type</span>
+                                  <span className={`font-medium ${log.metadata.isTrial ? 'text-yellow-600' : 'text-green-600'}`}>
+                                    {log.metadata.isTrial ? `Trial (${log.metadata.trialDays || 7} days)` : `£${log.metadata.salePrice?.toFixed(2) || '0.00'}`}
+                                  </span>
+                                </div>
+                              )}
+                              {log.metadata?.tagUid && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Tag UID</span>
+                                  <span className="font-mono text-xs">{log.metadata.tagUid}</span>
+                                </div>
+                              )}
+                              {log.metadata?.customerName && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Customer</span>
+                                  <span className="font-medium">{log.metadata.customerName}</span>
+                                </div>
+                              )}
                               {log.ipAddress && (
-                                <div>
-                                  <span className="text-gray-500">IP Address:</span>
-                                  <span className="ml-1 font-mono">{log.ipAddress}</span>
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">IP Address</span>
+                                  <span className="font-mono text-xs">{log.ipAddress}</span>
                                 </div>
                               )}
-                              {log.userAgent && (
-                                <div className="col-span-2">
-                                  <span className="text-gray-500">User Agent:</span>
-                                  <span className="ml-1 truncate block" title={log.userAgent}>{log.userAgent}</span>
+                              {log.metadata?.latitude && log.metadata?.longitude && (
+                                <div className="bg-white p-2 rounded border">
+                                  <span className="text-gray-500 text-xs block">Location</span>
+                                  <span className="font-mono text-xs">{log.metadata.latitude.toFixed(4)}, {log.metadata.longitude.toFixed(4)}</span>
                                 </div>
                               )}
                             </div>
-                            <div className="mt-2 p-2 bg-gray-100 rounded font-mono text-xs overflow-x-auto">
-                              <pre>{JSON.stringify(log.metadata, null, 2)}</pre>
-                            </div>
+
+                            {/* User Agent */}
+                            {log.userAgent && (
+                              <div className="mb-3 text-xs">
+                                <span className="text-gray-500">Device:</span>
+                                <span className="ml-1 text-gray-600">{log.userAgent}</span>
+                              </div>
+                            )}
+
+                            {/* Review URL if present */}
+                            {log.metadata?.reviewUrl && (
+                              <div className="mb-3 text-xs">
+                                <span className="text-gray-500">URL:</span>
+                                <a href={log.metadata.reviewUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 hover:underline">
+                                  {log.metadata.reviewUrl}
+                                </a>
+                              </div>
+                            )}
+                            
+                            {/* Raw JSON expandable */}
+                            <details className="mt-2">
+                              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">View raw data</summary>
+                              <div className="mt-2 p-2 bg-gray-100 rounded font-mono text-xs overflow-x-auto">
+                                <pre>{JSON.stringify(log.metadata, null, 2)}</pre>
+                              </div>
+                            </details>
                           </div>
                         </td>
                       </tr>

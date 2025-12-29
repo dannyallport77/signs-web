@@ -2,10 +2,31 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 import { activityLogger, getRequestInfo } from '@/lib/activity-log';
+import { verifyMobileToken } from '@/lib/auth-mobile';
 
 export async function POST(request: Request) {
   console.log('\n========== /api/nfc-tags POST called ==========');
   try {
+    // Get user from auth token
+    let authUser: { userId: string; email: string; name: string } | null = null;
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (token) {
+      try {
+        const payload = await verifyMobileToken(token, request as any);
+        if (payload) {
+          authUser = {
+            userId: payload.userId as string,
+            email: payload.email as string,
+            name: payload.name as string,
+          };
+        }
+      } catch (e) {
+        console.warn('[NFC-TAGS] Token verification failed:', e);
+      }
+    }
+
     const body = await request.json();
     console.log('[NFC-TAGS] Request body:', JSON.stringify(body, null, 2));
     const { 
@@ -110,15 +131,42 @@ export async function POST(request: Request) {
       longitude: longitude ? parseFloat(longitude) : undefined,
       actionType,
       targetUrl: reviewUrl,
-      userId: writtenBy,
+      userId: authUser?.userId || writtenBy,
     });
 
-    // Log to activity log
+    // Log to activity log with full details
+    const requestInfo = getRequestInfo(request);
     await activityLogger.tagWritten(
-      writtenBy,
+      authUser?.userId || writtenBy,
       `Tag programmed for ${businessName}`,
-      { tagUid, placeId, businessName, actionType, reviewUrl, isTrial, salePrice },
-      getRequestInfo(request)
+      { 
+        // User info
+        writtenByUserId: authUser?.userId,
+        writtenByEmail: authUser?.email,
+        writtenByName: authUser?.name || writtenBy,
+        // Business info
+        businessName,
+        businessAddress,
+        placeId,
+        // Tag info
+        tagUid,
+        nfcTagId: nfcTag?.id,
+        // URL info
+        reviewUrl,
+        actionType,
+        // Location
+        latitude,
+        longitude,
+        // Pricing
+        isTrial: isTrial ?? true,
+        salePrice,
+        trialDays: trialDays ?? 7,
+        trialEndPrice: trialEndPrice ?? 30,
+        // Customer site
+        customerSiteId: customerSite?.id,
+        customerName: customerSite?.customerName,
+      },
+      requestInfo
     ).catch(err => console.error('[ActivityLog] Error:', err));
 
     return NextResponse.json({ 
