@@ -717,3 +717,22 @@ model Email {
   @@index([isArchived])
   @@index([receivedAt])
 }
+
+// Activity/Audit Log for tracking important events
+model ActivityLog {
+  id          String   @id @default(cuid())
+  type        String   // auth_failed, auth_success, tag_written, user_created, user_deleted, etc.
+  action      String   // Description of the action
+  userId      String?  // User who performed the action (if known)
+  targetUserId String? // User affected by the action (if applicable)
+  ipAddress   String?  // IP address of the request
+  userAgent   String?  // User agent string
+  metadata    Json?    // Additional context data
+  severity    String   @default("info") // info, warning, error, critical
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([userId])
+  @@index([severity])
+  @@index([createdAt])
+}

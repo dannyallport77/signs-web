@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
+import { activityLogger, getRequestInfo } from '@/lib/activity-log';
 
 /**
  * GET /api/nfc-interactions
@@ -107,6 +108,14 @@ export async function POST(request: Request) {
         userId,
         deviceInfo,
       });
+
+      // Log to activity log
+      await activityLogger.tagWritten(
+        userId,
+        `Tag programmed for ${businessName || siteId}`,
+        { nfcTagId, siteId, businessName, actionType, targetUrl },
+        getRequestInfo(request)
+      ).catch(console.error);
     } else {
       if (!actionType) {
         return NextResponse.json(

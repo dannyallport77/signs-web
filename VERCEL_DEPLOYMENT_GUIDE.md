@@ -28,7 +28,7 @@ railway variables
 # Copy the DATABASE_URL
 ```
 
-### Option C: Neon, Supabase, or PlanetScale
+### Option C: Railway, Supabase, or PlanetScale
 - Sign up for any PostgreSQL provider
 - Create a database
 - Copy the connection string

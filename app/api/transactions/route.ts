@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { verifyMobileToken } from '@/lib/auth-mobile';
+import { authenticateRequest } from '@/lib/auth-helpers';
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const auth = await authenticateRequest(authHeader);
+    if (!auth.success) {
+      return auth.response;
     }
-
-    const token = authHeader.substring(7);
-    const payload = await verifyMobileToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const payload = auth.payload;
 
     const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
     const tokenUserId = typeof payload.userId === 'string' ? payload.userId : undefined;
@@ -112,21 +102,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const auth = await authenticateRequest(authHeader);
+    if (!auth.success) {
+      return auth.response;
     }
-
-    const token = authHeader.substring(7);
-    const payload = await verifyMobileToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const payload = auth.payload;
 
     const role = typeof payload.role === 'string' ? payload.role.toLowerCase() : '';
     const tokenUserId = typeof payload.userId === 'string' ? payload.userId : undefined;

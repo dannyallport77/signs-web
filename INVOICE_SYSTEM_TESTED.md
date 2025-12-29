@@ -31,7 +31,7 @@ The invoice production system has been successfully tested and verified. All cor
 - **Auth**: EMAIL_PASSWORD=re_MYCjfKby_4rRmarqQWc4dZZQgZ8urrpuE
 
 ### Database
-- **Type**: PostgreSQL (Neon)
+- **Type**: PostgreSQL (Railway)
 - **ORM**: Prisma
 - **Models**: Invoice, InvoiceItem
 - **Fields**: invoiceNumber, customerEmail, customerName, totalAmount, status, items[], createdAt, sentAt
@@ -272,4 +272,4 @@ Customer receives email with PDF attachment
 **Last Updated**: November 30, 2024  
 **Test Framework**: Node.js with Prisma + Nodemailer  
 **Email Service**: Resend (SMTP)  
-**Database**: PostgreSQL (Neon)
+**Database**: PostgreSQL (Railway)

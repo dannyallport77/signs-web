@@ -88,8 +88,4 @@ export async function POST(request: Request) {
 }
 
 // Disable body parsing for webhook (Stripe needs raw body)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const dynamic = 'force-dynamic';
