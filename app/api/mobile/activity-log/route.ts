@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyMobileToken } from '@/lib/auth-mobile';
 import { logActivity, getRequestInfo, ActivityType } from '@/lib/activity-log';
 
+type Severity = 'info' | 'warning' | 'error' | 'critical';
+
+const VALID_SEVERITIES: Severity[] = ['info', 'warning', 'error', 'critical'];
+
 /**
  * POST /api/mobile/activity-log
  * Log activity events from the mobile app
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, action, metadata } = body;
+    const { type, action, metadata, severity = 'info' } = body;
 
     if (!type || !action) {
       return NextResponse.json(
@@ -30,6 +34,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate severity level
+    const validSeverity: Severity = VALID_SEVERITIES.includes(severity) ? severity : 'info';
 
     // Get user info from token
     const userId = payload.userId as string;
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
         userName,
         source: 'mobile_app',
       },
-      severity: 'info',
+      severity: validSeverity,
     });
 
     return NextResponse.json({ success: true });

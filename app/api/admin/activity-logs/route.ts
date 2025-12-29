@@ -118,12 +118,14 @@ export async function POST(request: NextRequest) {
       last24HoursCount,
       authFailedCount,
       criticalCount,
+      errorCount,
       typeBreakdown,
     ] = await Promise.all([
       prisma.activityLog.count(),
       prisma.activityLog.count({ where: { createdAt: { gte: last24Hours } } }),
       prisma.activityLog.count({ where: { type: 'auth_failed', createdAt: { gte: last7Days } } }),
       prisma.activityLog.count({ where: { severity: 'critical', createdAt: { gte: last7Days } } }),
+      prisma.activityLog.count({ where: { severity: 'error', createdAt: { gte: last7Days } } }),
       prisma.activityLog.groupBy({
         by: ['type'],
         _count: true,
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
         last24HoursCount,
         authFailedCount,
         criticalCount,
+        errorCount,
         typeBreakdown: typeBreakdown.map(t => ({ type: t.type, count: t._count })),
       },
     });
