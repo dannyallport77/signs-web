@@ -112,6 +112,10 @@ export default function ActivityLogsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(10); // seconds
   const limit = 50;
 
   useEffect(() => {
@@ -119,18 +123,22 @@ export default function ActivityLogsPage() {
     fetchStats();
   }, [page, filter]);
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh with configurable interval
   useEffect(() => {
+    if (!autoRefreshEnabled) return;
+    
     const interval = setInterval(() => {
-      fetchLogs();
+      fetchLogs(true); // silent refresh
       fetchStats();
-    }, 30000);
+    }, refreshInterval * 1000);
     return () => clearInterval(interval);
-  }, [page, filter]);
+  }, [page, filter, autoRefreshEnabled, refreshInterval]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
+      setIsRefreshing(true);
+      
       const params = new URLSearchParams();
       params.append('limit', limit.toString());
       params.append('offset', (page * limit).toString());
@@ -146,13 +154,15 @@ export default function ActivityLogsPage() {
         setLogs(data.data.logs);
         setTotal(data.data.total);
         setError(null);
+        setLastUpdated(new Date());
       } else {
         setError(data.error);
       }
     } catch (err) {
       setError('Failed to fetch activity logs');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -197,25 +207,80 @@ export default function ActivityLogsPage() {
     setPage(0);
   };
 
+  const formatLastUpdated = () => {
+    if (!lastUpdated) return '';
+    const seconds = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+    if (seconds < 5) return 'just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    return lastUpdated.toLocaleTimeString();
+  };
+
   const totalPages = Math.ceil(total / limit);
   const hasActiveFilters = filter.type || filter.severity || filter.startDate || filter.endDate;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Activity Log</h1>
-          <p className="text-sm text-gray-500">Real-time activity monitoring • Auto-refreshes every 30s</p>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>Real-time activity monitoring</span>
+            {lastUpdated && (
+              <>
+                <span>•</span>
+                <span className={`flex items-center gap-1 ${isRefreshing ? 'text-blue-600' : ''}`}>
+                  {isRefreshing && (
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  Updated {formatLastUpdated()}
+                </span>
+              </>
+            )}
+          </div>
         </div>
-        <button
-          onClick={() => { fetchLogs(); fetchStats(); }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Auto-refresh toggle */}
+          <div className="flex items-center gap-2 bg-white rounded-lg shadow px-3 py-2">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoRefreshEnabled}
+                onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+            <span className="text-sm text-gray-600">Auto</span>
+            
+            {autoRefreshEnabled && (
+              <select
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                className="text-sm border-0 bg-transparent text-gray-600 focus:ring-0 py-0 pr-6 pl-1"
+              >
+                <option value={5}>5s</option>
+                <option value={10}>10s</option>
+                <option value={30}>30s</option>
+                <option value={60}>1m</option>
+              </select>
+            )}
+          </div>
+          
+          <button
+            onClick={() => { fetchLogs(); fetchStats(); }}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
