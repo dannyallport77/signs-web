@@ -49,6 +49,17 @@ const TYPE_LABELS: Record<string, string> = {
   password_reset_completed: '🔑 Password Reset Done',
   admin_action: '⚙️ Admin Action',
   api_error: '❌ API Error',
+  // Mobile app events
+  app_opened: '📱 App Opened',
+  map_refreshed: '🗺️ Map Refreshed',
+  business_selected: '🏢 Business Selected',
+  platforms_selected: '📋 Platforms Selected',
+  website_link_toggled: '🔗 Website Link Toggle',
+  wifi_credentials_set: '📶 WiFi Credentials Set',
+  smart_link_created: '🔗 Smart Link Created',
+  tag_scan_started: '📡 Tag Scan Started',
+  tag_scan_completed: '✅ Tag Scan Completed',
+  tag_scan_failed: '❌ Tag Scan Failed',
 };
 
 export default function ActivityLogsPage() {

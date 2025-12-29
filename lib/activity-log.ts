@@ -16,7 +16,18 @@ export type ActivityType =
   | 'password_reset_requested'
   | 'password_reset_completed'
   | 'admin_action'
-  | 'api_error';
+  | 'api_error'
+  // Mobile app events
+  | 'app_opened'
+  | 'map_refreshed'
+  | 'business_selected'
+  | 'platforms_selected'
+  | 'website_link_toggled'
+  | 'wifi_credentials_set'
+  | 'smart_link_created'
+  | 'tag_scan_started'
+  | 'tag_scan_completed'
+  | 'tag_scan_failed';
 
 export type Severity = 'info' | 'warning' | 'error' | 'critical';
 
