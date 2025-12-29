@@ -95,6 +95,8 @@ export async function POST(request: Request) {
     let interaction;
 
     if (interactionType === 'write') {
+      console.log('[NFC] Processing tag write:', { businessName, siteId, userId });
+      
       interaction = await nfcTagInteractionService.logWrite({
         nfcTagId,
         siteId,
@@ -110,12 +112,14 @@ export async function POST(request: Request) {
       });
 
       // Log to activity log
+      console.log('[NFC] Logging to activity log...');
       await activityLogger.tagWritten(
         userId,
         `Tag programmed for ${businessName || siteId}`,
         { nfcTagId, siteId, businessName, actionType, targetUrl },
         getRequestInfo(request)
-      ).catch(console.error);
+      ).catch(err => console.error('[ActivityLog] Error:', err));
+      console.log('[NFC] Activity log complete');
     } else {
       if (!actionType) {
         return NextResponse.json(

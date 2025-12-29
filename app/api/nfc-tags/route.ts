@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
+import { activityLogger, getRequestInfo } from '@/lib/activity-log';
 
 export async function POST(request: Request) {
+  console.log('\n========== /api/nfc-tags POST called ==========');
   try {
     const body = await request.json();
+    console.log('[NFC-TAGS] Request body:', JSON.stringify(body, null, 2));
     const { 
       businessName, 
       businessAddress, 
@@ -109,6 +112,14 @@ export async function POST(request: Request) {
       targetUrl: reviewUrl,
       userId: writtenBy,
     });
+
+    // Log to activity log
+    await activityLogger.tagWritten(
+      writtenBy,
+      `Tag programmed for ${businessName}`,
+      { tagUid, placeId, businessName, actionType, reviewUrl, isTrial, salePrice },
+      getRequestInfo(request)
+    ).catch(err => console.error('[ActivityLog] Error:', err));
 
     return NextResponse.json({ 
       success: true, 
