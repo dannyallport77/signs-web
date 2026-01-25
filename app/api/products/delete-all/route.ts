@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/admin';
 
 export async function DELETE() {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
+
   try {
     // First delete all transactions that reference SignType
     const transactionResult = await prisma.transaction.deleteMany({});

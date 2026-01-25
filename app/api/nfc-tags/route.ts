@@ -2,30 +2,24 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
 import { activityLogger, getRequestInfo } from '@/lib/activity-log';
-import { verifyMobileToken } from '@/lib/auth-mobile';
+import { getRequestUser, isAdmin } from '@/lib/request-auth';
 
 export async function POST(request: Request) {
   console.log('\n========== /api/nfc-tags POST called ==========');
   try {
-    // Get user from auth token
-    let authUser: { userId: string; email: string; name: string } | null = null;
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    
-    if (token) {
-      try {
-        const payload = await verifyMobileToken(token, request as any);
-        if (payload) {
-          authUser = {
-            userId: payload.userId as string,
-            email: payload.email as string,
-            name: payload.name as string,
-          };
-        }
-      } catch (e) {
-        console.warn('[NFC-TAGS] Token verification failed:', e);
-      }
+    const requestUser = await getRequestUser(request);
+    if (!requestUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
+
+    const authUser = {
+      userId: requestUser.userId,
+      email: requestUser.email || '',
+      name: requestUser.name || '',
+    };
 
     const body = await request.json();
     console.log('[NFC-TAGS] Request body:', JSON.stringify(body, null, 2));
@@ -131,19 +125,19 @@ export async function POST(request: Request) {
       longitude: longitude ? parseFloat(longitude) : undefined,
       actionType,
       targetUrl: reviewUrl,
-      userId: authUser?.userId || writtenBy,
+      userId: authUser.userId || writtenBy,
     });
 
     // Log to activity log with full details
     const requestInfo = getRequestInfo(request);
     await activityLogger.tagWritten(
-      authUser?.userId || writtenBy,
+      authUser.userId || writtenBy,
       `Tag programmed for ${businessName}`,
       { 
         // User info
-        writtenByUserId: authUser?.userId,
-        writtenByEmail: authUser?.email,
-        writtenByName: authUser?.name || writtenBy,
+        writtenByUserId: authUser.userId,
+        writtenByEmail: authUser.email,
+        writtenByName: authUser.name || writtenBy,
         // Business info
         businessName,
         businessAddress,
@@ -187,6 +181,21 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const requestUser = await getRequestUser(request);
+    if (!requestUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (!isAdmin(requestUser)) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // 'active', 'erased', 'all'
     const limit = parseInt(searchParams.get('limit') || '100');

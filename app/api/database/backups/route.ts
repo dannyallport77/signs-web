@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { requireAdmin } from '@/lib/admin';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const BACKUP_DIR = path.join(process.cwd(), 'backups', 'db');
 
 // Ensure backup directory exists
@@ -13,6 +14,11 @@ if (!fs.existsSync(BACKUP_DIR)) {
 }
 
 export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
+
   try {
     const files = await fs.promises.readdir(BACKUP_DIR);
     
@@ -44,6 +50,11 @@ export async function GET() {
 }
 
 export async function POST() {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
+
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `backup-${timestamp}.dump`;
@@ -58,9 +69,7 @@ export async function POST() {
     }
 
     // Use pg_dump with custom format (-F c) which is compressed and suitable for pg_restore
-    const command = `pg_dump "${databaseUrl}" -F c -f "${filePath}"`;
-
-    await execAsync(command);
+    await execFileAsync('pg_dump', [databaseUrl, '-F', 'c', '-f', filePath]);
 
     return NextResponse.json({ 
       success: true, 

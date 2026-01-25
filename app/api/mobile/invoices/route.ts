@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 interface InvoiceItem {
   productId: string;

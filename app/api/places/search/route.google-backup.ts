@@ -1,3 +1,5 @@
+// Backup of previous Google Places search route
+// (2026-01-06)
 
 import { NextResponse } from 'next/server';
 

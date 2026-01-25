@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requireAdmin } from '@/lib/admin';
 
 const BACKUP_DIR = path.join(process.cwd(), 'backups', 'db');
+
+function resolveBackupPath(filename: string): string | null {
+  const filePath = path.resolve(BACKUP_DIR, filename);
+  const relativePath = path.relative(BACKUP_DIR, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return null;
+  }
+  return filePath;
+}
 
 export async function DELETE(
   request: NextRequest,
@@ -10,11 +20,15 @@ export async function DELETE(
 ) {
   const { filename } = await params;
 
-  try {
-    const filePath = path.join(BACKUP_DIR, filename);
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
 
-    // Security check
-    if (!filePath.startsWith(BACKUP_DIR)) {
+  try {
+    const filePath = resolveBackupPath(filename);
+
+    if (!filePath) {
       return NextResponse.json(
         { success: false, error: 'Invalid filename' },
         { status: 400 }
@@ -45,11 +59,14 @@ export async function GET(
 ) {
   const { filename } = await params;
 
-  try {
-    const filePath = path.join(BACKUP_DIR, filename);
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
 
-    // Security check
-    if (!filePath.startsWith(BACKUP_DIR)) {
+  try {
+    const filePath = resolveBackupPath(filename);
+    if (!filePath) {
       return new NextResponse('Invalid filename', { status: 400 });
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionService';
+import { getRequestUser } from '@/lib/request-auth';
 
 /**
  * POST /api/nfc-tags/erase
@@ -8,6 +9,14 @@ import { nfcTagInteractionService } from '@/lib/services/nfcTagInteractionServic
  */
 export async function POST(request: Request) {
   try {
+    const requestUser = await getRequestUser(request);
+    if (!requestUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { 
       existingUrl,
@@ -25,6 +34,7 @@ export async function POST(request: Request) {
     }
 
     const erasedAt = new Date();
+    const resolvedErasedBy = erasedBy || requestUser.name || requestUser.email || 'Mobile App';
     let erasedTag = null;
 
     // Try to find the existing tag by URL or tagUid
@@ -70,7 +80,7 @@ export async function POST(request: Request) {
         data: {
           status: 'erased',
           erasedAt,
-          erasedBy: erasedBy || 'Mobile App',
+          erasedBy: resolvedErasedBy,
         }
       });
 
@@ -89,7 +99,7 @@ export async function POST(request: Request) {
           newBusinessName,
           newPlaceId,
           erasedAt: erasedAt.toISOString(),
-          erasedBy: erasedBy || 'Mobile App',
+          erasedBy: resolvedErasedBy,
         },
       });
 
@@ -119,7 +129,7 @@ export async function POST(request: Request) {
         previousUrl: existingUrl,
         tagUid,
         erasedAt: erasedAt.toISOString(),
-        erasedBy: erasedBy || 'Mobile App',
+        erasedBy: resolvedErasedBy,
         note: 'Tag was not found in database - may be from before tracking system',
       },
     });

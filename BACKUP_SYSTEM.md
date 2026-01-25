@@ -4,17 +4,17 @@
 
 Your Signs App now has **two backup systems** protecting your code:
 
-### 1. **GitHub Actions Hourly Backups** (Cloud)
-- Runs every hour automatically
+### 1. **GitHub Actions Daily Backups** (Cloud)
+- Runs daily at 2 AM automatically
 - Creates timestamped backup branches on GitHub
-- Keeps 24-hour rolling window of backups
+- Keeps 24-day rolling window of backups
 - **Free** (uses GitHub Actions quota)
 - Accessible from any machine with GitHub access
 
-### 2. **macOS LaunchAgent Hourly Backups** (Local)
-- Runs every hour automatically on your Mac
+### 2. **macOS LaunchAgent Daily Backups** (Local)
+- Runs daily at 2 AM automatically on your Mac
 - Stores compressed backups locally (~670MB per backup)
-- Keeps last 24 backups (24 hours of history)
+- Keeps last 24 backups (24 days of history)
 - Fast local restore (no internet needed)
 - Can restore quickly if needed
 
@@ -52,8 +52,8 @@ Your Signs App now has **two backup systems** protecting your code:
 ## Understanding Your Backup System
 
 ### When Backups Run
-- **Local backups**: Every hour on the hour (:00)
-- **GitHub backups**: Every hour on the hour (:00)
+- **Local backups**: Daily at 2 AM
+- **GitHub backups**: Daily at 2 AM
 
 ### What Gets Backed Up
 - Full `signs-app/` directory with all source code and configuration
@@ -149,9 +149,9 @@ ls signs-app/signs-web/app/products/page.tsx  # Should exist
 ## Summary
 
 You're now protected with:
-- ✅ Hourly local backups (fast, offline)
-- ✅ Hourly GitHub backups (cloud, accessible anywhere)
-- ✅ 24-hour rolling recovery window
+- ✅ Daily local backups (fast, offline)
+- ✅ Daily GitHub backups (cloud, accessible anywhere)
+- ✅ 24-day rolling recovery window
 - ✅ Automated management scripts
 - ✅ Zero-cost backup infrastructure
 

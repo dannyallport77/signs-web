@@ -1,27 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 import fs from 'fs';
+import { requireAdmin } from '@/lib/admin';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const BACKUP_DIR = path.join(process.cwd(), 'backups', 'db');
 
+function resolveBackupPath(filename: string): string | null {
+  const filePath = path.resolve(BACKUP_DIR, filename);
+  const relativePath = path.relative(BACKUP_DIR, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return null;
+  }
+  return filePath;
+}
+
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
+
   try {
     const { filename } = await request.json();
 
-    if (!filename) {
+    if (!filename || typeof filename !== 'string') {
       return NextResponse.json(
         { success: false, error: 'Filename is required' },
         { status: 400 }
       );
     }
 
-    const filePath = path.join(BACKUP_DIR, filename);
-
-    // Security check: prevent directory traversal
-    if (!filePath.startsWith(BACKUP_DIR)) {
+    const filePath = resolveBackupPath(filename);
+    if (!filePath) {
       return NextResponse.json(
         { success: false, error: 'Invalid filename' },
         { status: 400 }
@@ -48,9 +61,15 @@ export async function POST(request: NextRequest) {
     // --if-exists: used with --clean
     // --no-owner --no-privileges: avoid permission issues
     // -d: database to connect to
-    const command = `pg_restore --clean --if-exists --no-owner --no-privileges -d "${databaseUrl}" "${filePath}"`;
-
-    await execAsync(command);
+    await execFileAsync('pg_restore', [
+      '--clean',
+      '--if-exists',
+      '--no-owner',
+      '--no-privileges',
+      '-d',
+      databaseUrl,
+      filePath,
+    ]);
 
     return NextResponse.json({ 
       success: true, 

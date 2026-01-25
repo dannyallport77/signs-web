@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/admin';
 
 /**
  * POST /api/products/create
@@ -7,6 +8,11 @@ import { prisma } from '@/lib/prisma';
  * Manually create a product
  */
 export async function POST(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin.ok) {
+    return admin.response;
+  }
+
   try {
     const body = await request.json();
     
