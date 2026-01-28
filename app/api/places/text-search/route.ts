@@ -1,4 +1,13 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
+
+type GoogleCallCounts = {
+  total: number;
+  textSearch: number;
+  placeDetails: number;
+};
+
+type GoogleCallType = 'textSearch' | 'placeDetails';
 
 interface SocialMediaLinks {
   google?: { reviewUrl?: string; mapsUrl?: string };
@@ -18,13 +27,18 @@ interface SocialMediaLinks {
 }
 
 // Fetch place details to get website, phone, etc.
-async function fetchPlaceDetails(placeId: string, apiKey: string): Promise<{ website?: string; phone?: string } | null> {
+async function fetchPlaceDetails(
+  placeId: string, 
+  apiKey: string, 
+  trackCall?: (type: GoogleCallType) => void
+): Promise<{ website?: string; phone?: string } | null> {
   try {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
     url.searchParams.append('place_id', placeId);
     url.searchParams.append('fields', 'website,formatted_phone_number');
     url.searchParams.append('key', apiKey);
 
+    trackCall?.('placeDetails');
     const response = await fetch(url.toString());
     const data = await response.json();
 
@@ -76,24 +90,38 @@ async function fetchSocialMediaLinks(
 
 export async function GET(request: Request) {
   try {
+    const debugId = request.headers.get('x-google-debug-id') || randomUUID();
+    const debugContext = request.headers.get('x-google-debug-context') || 'places_text_search';
+    const debugStart = Date.now();
+    const googleCalls: GoogleCallCounts = { total: 0, textSearch: 0, placeDetails: 0 };
+    const trackCall = (type: GoogleCallType, amount: number = 1) => {
+      googleCalls[type] += amount;
+      googleCalls.total += amount;
+    };
+    const withDebugHeaders = (response: NextResponse) => {
+      response.headers.set('x-google-debug-id', debugId);
+      response.headers.set('x-google-api-calls', JSON.stringify(googleCalls));
+      return response;
+    };
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('query');
     const includeSocialMedia = searchParams.get('includeSocialMedia') !== 'false'; // Default to true
 
     if (!query) {
-      return NextResponse.json(
+      return withDebugHeaders(NextResponse.json(
         { error: 'Query parameter is required' },
         { status: 400 }
-      );
+      ));
     }
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       console.error('Google Places API key not configured');
-      return NextResponse.json(
+      return withDebugHeaders(NextResponse.json(
         { error: 'Google Places API key not configured' },
         { status: 500 }
-      );
+      ));
     }
 
     // Use Google Places Text Search API for global search
@@ -101,15 +129,24 @@ export async function GET(request: Request) {
     url.searchParams.append('query', query);
     url.searchParams.append('key', apiKey);
 
+    trackCall('textSearch');
     const response = await fetch(url.toString());
     const data = await response.json();
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
       console.error('Google Places Text Search API error:', data.status, data.error_message);
-      return NextResponse.json(
+      console.error('[GoogleAPI] Text search failed', {
+        debugId,
+        context: debugContext,
+        endpoint: '/api/places/text-search',
+        status: data.status,
+        googleCalls,
+        durationMs: Date.now() - debugStart,
+      });
+      return withDebugHeaders(NextResponse.json(
         { error: `Google Places API error: ${data.status}` },
         { status: 500 }
-      );
+      ));
     }
 
     // Handle empty results
@@ -122,7 +159,7 @@ export async function GET(request: Request) {
     const places = await Promise.all(
       results.map(async (place: any) => {
         // Fetch place details for website (Text Search doesn't return it)
-        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey);
+        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall);
         
         const basePlace = {
           placeId: place.place_id,
@@ -168,11 +205,22 @@ export async function GET(request: Request) {
       })
     );
 
-    return NextResponse.json({
+    console.info('[GoogleAPI] Text search completed', {
+      debugId,
+      context: debugContext,
+      endpoint: '/api/places/text-search',
+      googleCalls,
+      durationMs: Date.now() - debugStart,
+      results: places.length,
+      includeSocialMedia,
+    });
+    return withDebugHeaders(NextResponse.json({
       success: true,
       data: places,
-      count: places.length
-    });
+      count: places.length,
+      googleCalls,
+      debugId
+    }));
   } catch (error) {
     console.error('Error searching places:', error);
     return NextResponse.json(

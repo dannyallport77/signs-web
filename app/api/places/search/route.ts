@@ -1,14 +1,28 @@
 
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
+
+type GoogleCallCounts = {
+  total: number;
+  nearbySearch: number;
+  placeDetails: number;
+};
+
+type GoogleCallType = 'nearbySearch' | 'placeDetails';
 
 // Fetch place details to get website, phone, etc.
-async function fetchPlaceDetails(placeId: string, apiKey: string): Promise<{ website?: string; phone?: string } | null> {
+async function fetchPlaceDetails(
+  placeId: string, 
+  apiKey: string, 
+  trackCall?: (type: GoogleCallType) => void
+): Promise<{ website?: string; phone?: string } | null> {
   try {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
     url.searchParams.append('place_id', placeId);
     url.searchParams.append('fields', 'website,formatted_phone_number');
     url.searchParams.append('key', apiKey);
 
+    trackCall?.('placeDetails');
     const response = await fetch(url.toString());
     const data = await response.json();
 
@@ -35,6 +49,20 @@ export async function GET(request: Request) {
     );
   }
   try {
+    const debugId = request.headers.get('x-google-debug-id') || randomUUID();
+    const debugContext = request.headers.get('x-google-debug-context') || 'places_search';
+    const debugStart = Date.now();
+    const googleCalls: GoogleCallCounts = { total: 0, nearbySearch: 0, placeDetails: 0 };
+    const trackCall = (type: GoogleCallType, amount: number = 1) => {
+      googleCalls[type] += amount;
+      googleCalls.total += amount;
+    };
+    const withDebugHeaders = (response: NextResponse) => {
+      response.headers.set('x-google-debug-id', debugId);
+      response.headers.set('x-google-api-calls', JSON.stringify(googleCalls));
+      return response;
+    };
+
     const { searchParams } = new URL(request.url);
     const latitude = searchParams.get('latitude');
     const longitude = searchParams.get('longitude');
@@ -43,18 +71,18 @@ export async function GET(request: Request) {
     const rankBy = searchParams.get('rankby') || 'distance'; // Default to distance-based ranking
 
     if (!latitude || !longitude) {
-      return NextResponse.json(
+      return withDebugHeaders(NextResponse.json(
         { error: 'Latitude and longitude are required' },
         { status: 400 }
-      );
+      ));
     }
 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
+      return withDebugHeaders(NextResponse.json(
         { error: 'Google Places API key not configured' },
         { status: 500 }
-      );
+      ));
     }
 
     const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
@@ -82,15 +110,24 @@ export async function GET(request: Request) {
       const fetchUrl = nextPageToken 
         ? `${url.toString()}&pagetoken=${nextPageToken}`
         : url.toString();
+      trackCall('nearbySearch');
       const response = await fetch(fetchUrl);
       const data = await response.json();
 
       if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
         if (requestCount === 0) {
-          return NextResponse.json(
+          console.error('[GoogleAPI] Places search failed', {
+            debugId,
+            context: debugContext,
+            endpoint: '/api/places/search',
+            status: data.status,
+            googleCalls,
+            durationMs: Date.now() - debugStart,
+          });
+          return withDebugHeaders(NextResponse.json(
             { error: `Google Places API error: ${data.status}` },
             { status: 500 }
-          );
+          ));
         }
         break;
       }
@@ -110,7 +147,7 @@ export async function GET(request: Request) {
                   Math.sin(Δλ/2) * Math.sin(Δλ/2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const distance = R * c;
-        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey);
+        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall);
         return {
           placeId: place.place_id,
           name: place.name,
@@ -136,19 +173,27 @@ export async function GET(request: Request) {
     allPlaces.sort((a, b) => a.distance - b.distance);
     const maxRadius = parseFloat(radius);
     const filteredPlaces = allPlaces.filter(place => place.distance <= maxRadius);
-    return NextResponse.json({
+    console.info('[GoogleAPI] Places search completed', {
+      debugId,
+      context: debugContext,
+      endpoint: '/api/places/search',
+      googleCalls,
+      durationMs: Date.now() - debugStart,
+      results: filteredPlaces.length,
+      hasMore: !!nextPageToken,
+    });
+    return withDebugHeaders(NextResponse.json({
       success: true,
       data: filteredPlaces,
       count: filteredPlaces.length,
       hasMore: !!nextPageToken,
       rankBy: rankBy,
-      maxRadius: maxRadius
-    });
+      maxRadius: maxRadius,
+      googleCalls,
+      debugId
+    }));
   } catch (error) {
     console.error('Error searching places:', error);
-    return NextResponse.json(
-      { error: 'Failed to search places' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to search places' }, { status: 500 });
   }
 }
