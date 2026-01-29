@@ -44,10 +44,9 @@ npm run dev
 
 The web app will be available at: **http://localhost:3000**
 
-### Default Admin Login
-- **Email**: `admin@example.com`
-- **Password**: `admin123`
-- ⚠️ **CHANGE THIS IMMEDIATELY** after first login
+### Admin Login
+- Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your environment before running `npm run setup`.
+- No default credentials are shipped.
 
 ## Step 3: Create Users for Mobile App
 

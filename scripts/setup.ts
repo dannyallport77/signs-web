@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -6,33 +7,36 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🚀 Setting up Signs NFC Manager database...\n');
 
-  // Create admin user
-  const adminEmail = 'admin@example.com';
-  const adminPassword = 'admin123'; // Change this in production!
+  // Create admin user (only if env provided)
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
 
-  const existingAdmin = await prisma.user.findUnique({
-    where: { email: adminEmail }
-  });
-
-  if (existingAdmin) {
-    console.log('✅ Admin user already exists');
+  if (!adminEmail || !adminPassword) {
+    console.log('⚠️  ADMIN_EMAIL/ADMIN_PASSWORD not set. Skipping admin user creation.');
   } else {
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-    
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        password: hashedPassword,
-        name: 'System Administrator',
-        role: 'admin',
-        active: true,
-      }
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail }
     });
-    
-    console.log('✅ Admin user created');
-    console.log(`   Email: ${adminEmail}`);
-    console.log(`   Password: ${adminPassword}`);
-    console.log('   ⚠️  CHANGE THIS PASSWORD IMMEDIATELY!\n');
+
+    if (existingAdmin) {
+      console.log('✅ Admin user already exists');
+    } else {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          password: hashedPassword,
+          name: 'System Administrator',
+          role: 'admin',
+          active: true,
+        }
+      });
+      
+      console.log('✅ Admin user created');
+      console.log(`   Email: ${adminEmail}`);
+      console.log('   ⚠️  Store this password securely.\n');
+    }
   }
 
   // Create sample stock items
@@ -77,10 +81,9 @@ async function main() {
   console.log('\n✨ Database setup complete!\n');
   console.log('Next steps:');
   console.log('1. Start the web app: npm run dev');
-  console.log('2. Login with admin@example.com / admin123');
-  console.log('3. Change the admin password');
-  console.log('4. Add users for mobile app access');
-  console.log('5. Configure Google Maps API keys in .env\n');
+  console.log('2. Ensure an admin user exists (set ADMIN_EMAIL/ADMIN_PASSWORD and re-run setup if needed)');
+  console.log('3. Add users for mobile app access');
+  console.log('4. Configure Google Maps API keys in .env\n');
 }
 
 main()

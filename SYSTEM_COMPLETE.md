@@ -32,13 +32,12 @@ You now have a **complete, production-ready system** with:
 ```bash
 cd "/Users/admin/Development/signs app/signs-web"
 npm install
-npm run setup    # Creates admin user & sample data
+npm run setup    # Creates admin user if ADMIN_EMAIL/ADMIN_PASSWORD are set
 npm run dev      # Starts on http://localhost:3000
 ```
 
-**Default Login**:
-- Email: `admin@example.com`
-- Password: `admin123`
+**Admin Login**:
+- Use the credentials you set in `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
 ### 2. Create Mobile Users
 1. Login to http://localhost:3000
@@ -207,8 +206,8 @@ Before using in production:
    - Get API key
    - Add to `.env` and `app.json`
 
-2. **Change Default Credentials**
-   - Admin password (admin123)
+2. **Set Admin Credentials**
+   - `ADMIN_EMAIL` and `ADMIN_PASSWORD` for admin creation
    - NextAuth secret
 
 3. **Database**

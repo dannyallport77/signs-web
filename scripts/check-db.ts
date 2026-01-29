@@ -1,4 +1,5 @@
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -10,13 +11,23 @@ async function main() {
     await prisma.$connect();
     console.log('Connected successfully.');
 
-    const email = 'admin@example.com';
+    const email = process.env.CHECK_EMAIL;
+    const password = process.env.CHECK_PASSWORD;
+
+    if (!email) {
+      console.log('⚠️  Set CHECK_EMAIL to look up a user.');
+      return;
+    }
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (user) {
       console.log(`User ${email} found. Active: ${user.active}`);
-      const isMatch = await bcrypt.compare('admin123', user.password);
-      console.log(`Password 'admin123' match: ${isMatch}`);
+      if (password) {
+        const isMatch = await bcrypt.compare(password, user.password);
+        console.log(`Password match: ${isMatch}`);
+      } else {
+        console.log('No CHECK_PASSWORD provided. Skipping password check.');
+      }
     } else {
       console.log(`User ${email} not found.`);
     }

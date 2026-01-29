@@ -1,7 +1,12 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Logo from './Logo';
 
-export default function Footer() {
+type FooterProps = {
+  extraFooter?: ReactNode;
+};
+
+export default function Footer({ extraFooter }: FooterProps) {
   return (
     <footer className="bg-gray-900 border-t border-white/10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -33,7 +38,6 @@ export default function Footer() {
             <ul className="space-y-4 text-sm">
               <li><Link href="/" className="text-gray-400 hover:text-white transition-colors">Home</Link></li>
               <li><Link href="/contact" className="text-gray-400 hover:text-white transition-colors">Contact Us</Link></li>
-              <li><Link href="/login" className="text-gray-400 hover:text-white transition-colors">Admin Portal</Link></li>
             </ul>
           </div>
           
@@ -48,10 +52,15 @@ export default function Footer() {
         
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} Review Signs. All rights reserved.</p>
-          <div className="flex gap-6">
+          <div className="flex items-center gap-6">
             <span className="text-2xl grayscale opacity-50 hover:opacity-100 transition-opacity cursor-pointer">💳</span>
             <span className="text-2xl grayscale opacity-50 hover:opacity-100 transition-opacity cursor-pointer">🅿️</span>
             <span className="text-2xl grayscale opacity-50 hover:opacity-100 transition-opacity cursor-pointer">🍎</span>
+            {extraFooter ? (
+              <div className="text-[10px] text-gray-500/30 hover:text-gray-400/60 transition-colors">
+                {extraFooter}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

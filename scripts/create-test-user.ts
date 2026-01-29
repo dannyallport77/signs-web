@@ -1,11 +1,19 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = 'test@example.com';
-  const password = 'test123';
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+  const name = process.env.TEST_USER_NAME || 'Test User';
+  const role = process.env.TEST_USER_ROLE || 'user';
+
+  if (!email || !password) {
+    console.log('⚠️  Set TEST_USER_EMAIL and TEST_USER_PASSWORD to create a test user.');
+    return;
+  }
   const hashedPassword = await bcrypt.hash(password, 10);
 
   try {
@@ -19,8 +27,8 @@ async function main() {
       create: {
         email,
         password: hashedPassword,
-        name: 'Test User',
-        role: 'admin',
+        name,
+        role,
         active: true,
       },
     });

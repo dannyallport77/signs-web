@@ -4,15 +4,22 @@
  * Usage: npx tsx scripts/reset-password.ts
  */
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function resetPassword() {
-  const email = 'dannyallport@icloud.com';
-  const newPassword = 'Verify123!';
-  const name = 'Danny Allport';
+  const email = process.env.RESET_EMAIL;
+  const newPassword = process.env.RESET_PASSWORD;
+  const name = process.env.RESET_NAME || undefined;
+  const role = process.env.RESET_ROLE || undefined;
+
+  if (!email || !newPassword) {
+    console.log('⚠️  Set RESET_EMAIL and RESET_PASSWORD to reset a user password.');
+    return;
+  }
   
   console.log(`🔄 Creating/Resetting password for ${email}...`);
   
@@ -23,23 +30,25 @@ async function resetPassword() {
     // Upsert user (create if doesn't exist, update if exists)
     const user = await prisma.user.upsert({
       where: { email },
-      update: { 
-        password: hashedPassword 
+      update: {
+        password: hashedPassword,
+        ...(name ? { name } : {}),
+        ...(role ? { role } : {}),
       },
       create: {
         email,
-        name,
+        ...(name ? { name } : {}),
         password: hashedPassword,
-        role: 'ADMIN',
+        ...(role ? { role } : {}),
       },
     });
     
     console.log(`✅ User created/updated successfully!`);
     console.log(`   ID: ${user.id}`);
     console.log(`   Email: ${email}`);
-    console.log(`   Name: ${user.name}`);
+    console.log(`   Name: ${user.name || '-'}`);
     console.log(`   Role: ${user.role}`);
-    console.log(`   Password: ${newPassword}`);
+    console.log('   Password updated');
     
   } catch (error) {
     console.error('❌ Error:', error);

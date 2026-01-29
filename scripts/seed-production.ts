@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -6,39 +7,53 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding production database...');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
-    update: {
-      active: true,
-    },
-    create: {
-      email: 'admin@example.com',
-      name: 'Admin User',
-      password: adminPassword,
-      role: 'ADMIN',
-      active: true,
-    },
-  });
-  console.log('✓ Created admin user:', admin.email, '- active:', admin.active);
+  // Create admin user (only if env provided)
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPasswordRaw = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPasswordRaw) {
+    console.log('⚠️  ADMIN_EMAIL/ADMIN_PASSWORD not set. Skipping admin user creation.');
+  } else {
+    const adminPassword = await bcrypt.hash(adminPasswordRaw, 10);
+    const admin = await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        active: true,
+      },
+      create: {
+        email: adminEmail,
+        name: 'Admin User',
+        password: adminPassword,
+        role: 'ADMIN',
+        active: true,
+      },
+    });
+    console.log('✓ Created admin user:', admin.email, '- active:', admin.active);
+  }
 
-  // Create test user
-  const testPassword = await bcrypt.hash('test123', 10);
-  const testUser = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
-    update: {
-      active: true,
-    },
-    create: {
-      email: 'test@example.com',
-      name: 'Test User',
-      password: testPassword,
-      role: 'USER',
-      active: true,
-    },
-  });
-  console.log('✓ Created test user:', testUser.email, '- active:', testUser.active);
+  // Create test user (optional; requires env)
+  const testEmail = process.env.TEST_USER_EMAIL;
+  const testPasswordRaw = process.env.TEST_USER_PASSWORD;
+  const testName = process.env.TEST_USER_NAME || 'Test User';
+  const testRole = process.env.TEST_USER_ROLE || 'USER';
+  if (!testEmail || !testPasswordRaw) {
+    console.log('ℹ️  TEST_USER_EMAIL/TEST_USER_PASSWORD not set. Skipping test user creation.');
+  } else {
+    const testPassword = await bcrypt.hash(testPasswordRaw, 10);
+    const testUser = await prisma.user.upsert({
+      where: { email: testEmail },
+      update: {
+        active: true,
+      },
+      create: {
+        email: testEmail,
+        name: testName,
+        password: testPassword,
+        role: testRole,
+        active: true,
+      },
+    });
+    console.log('✓ Created test user:', testUser.email, '- active:', testUser.active);
+  }
 
   // Create sign types - NFC signs for review and social media collection
   const signTypes = [

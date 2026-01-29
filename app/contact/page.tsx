@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 
@@ -130,7 +131,13 @@ export default function ContactPage() {
           </form>
         )}
       </main>
-      <Footer />
+      <Footer
+        extraFooter={(
+          <Link href="/login" className="uppercase tracking-[0.35em]" aria-label="Admin login">
+            admin
+          </Link>
+        )}
+      />
     </div>
   );
 }
