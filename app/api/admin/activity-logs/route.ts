@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const severity = searchParams.get('severity');
     const userId = searchParams.get('userId');
+    const service = searchParams.get('service');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
@@ -39,6 +40,13 @@ export async function GET(request: NextRequest) {
         { userId },
         { targetUserId: userId },
       ];
+    }
+
+    if (service) {
+      where.metadata = {
+        path: ['service'],
+        equals: service,
+      };
     }
 
     if (startDate || endDate) {

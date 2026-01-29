@@ -17,6 +17,7 @@ export type ActivityType =
   | 'password_reset_completed'
   | 'admin_action'
   | 'api_error'
+  | 'google_api_call'
   // Mobile app events
   | 'app_opened'
   | 'map_refreshed'

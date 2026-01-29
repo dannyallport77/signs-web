@@ -4,6 +4,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import { googleApiFetch } from '@/lib/google-api';
 
 // ============================================================================
 // TYPES
@@ -409,9 +410,24 @@ export async function findViaGoogleCSE(
       console.log(`[Google CSE] Searching: ${query}`);
       
       const response = await withRetry(
-        () => fetchWithTimeout(
+        () => googleApiFetch(
           `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&cx=${cseId}&key=${apiKey}&num=3`,
-          { timeoutMs: 10000 }
+          {
+            timeoutMs: 10000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+          },
+          {
+            service: 'custom_search',
+            action: 'Google Custom Search',
+            source: 'review_platform_scraper',
+            metadata: {
+              businessName,
+              locationHint,
+              domain,
+            },
+          }
         ),
         { maxRetries: 2, service: 'google_cse' }
       );

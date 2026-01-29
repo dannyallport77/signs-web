@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { prisma } from '@/lib/prisma';
+import { googleApiFetch } from '@/lib/google-api';
 
 interface SocialMediaLinks {
   google?: { reviewUrl?: string; mapsUrl?: string };
-  facebook?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; verified?: boolean };
-  instagram?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; verified?: boolean };
-  tiktok?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
-  twitter?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
-  youtube?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
-  linkedin?: { profileUrl?: string; searchUrl?: string; verified?: boolean };
+  facebook?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  instagram?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  tiktok?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  twitter?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  youtube?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
+  linkedin?: { profileUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   tripadvisor?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   trustpilot?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
   yelp?: { profileUrl?: string; reviewUrl?: string; searchUrl?: string; note?: string; verified?: boolean };
@@ -20,7 +21,7 @@ interface SocialMediaLinks {
 }
 
 const CACHE_KEY_DELIMITER = '::';
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 
 function buildCacheKey(businessName: string, address?: string | null, website?: string | null): string {
   const normalize = (value?: string | null) => {
@@ -411,7 +412,13 @@ async function tryMultipleUrls(urls: string[], timeoutMs: number = 2000): Promis
 }
 
 // Use AI (OpenAI or Gemini) to find the correct platform URL
-async function findUrlViaAI(businessName: string, platform: string, address?: string, website?: string): Promise<string | null> {
+async function findUrlViaAI(
+  businessName: string,
+  platform: string,
+  address?: string,
+  website?: string,
+  request?: Request
+): Promise<string | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   
@@ -487,7 +494,7 @@ Do NOT guess or make up URLs.`;
     if (!url && geminiKey) {
       try {
         console.log(`🤖 Trying Gemini for ${platform} (${businessName})...`);
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await googleApiFetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -499,6 +506,15 @@ Do NOT guess or make up URLs.`;
             },
           }),
           signal: AbortSignal.timeout(10000),
+        }, {
+          service: 'gemini_generate_content',
+          action: 'Google Gemini generateContent',
+          request,
+          source: 'places_social_media',
+          metadata: {
+            platform,
+            businessName,
+          },
         });
 
         if (response.ok) {
@@ -563,14 +579,87 @@ const platformDomains: Record<string, string[]> = {
   trustatrader: ['trustatrader.com/trader/'],
 };
 
+function extractCity(address?: string | null): string | undefined {
+  if (!address) return undefined;
+  const parts = address.split(',').map(part => part.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    const candidate = parts[i];
+    if (candidate.length < 3) continue;
+    if (/\d/.test(candidate)) continue;
+    return candidate;
+  }
+  return undefined;
+}
+
+function toPathSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/&/g, 'and')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildPlatformSearchUrl(platform: string, businessName: string, address?: string | null): string {
+  const cleanName = cleanBusinessName(businessName);
+  const city = extractCity(address);
+  const query = [cleanName, city].filter(Boolean).join(' ').trim() || businessName;
+  const platformKey = platform.toLowerCase();
+
+  switch (platformKey) {
+    case 'instagram':
+      return `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(query)}`;
+    case 'tiktok':
+      return `https://www.tiktok.com/search?q=${encodeURIComponent(query)}`;
+    case 'twitter':
+      return `https://twitter.com/search?q=${encodeURIComponent(query)}`;
+    case 'facebook':
+      return `https://www.facebook.com/search/pages/?q=${encodeURIComponent(query)}`;
+    case 'youtube':
+      return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    case 'linkedin':
+      return `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(query)}`;
+    case 'trustpilot':
+      return `https://www.trustpilot.com/search?query=${encodeURIComponent(query)}`;
+    case 'tripadvisor':
+      return `https://www.tripadvisor.com/Search?q=${encodeURIComponent(query)}`;
+    case 'yelp':
+      return `https://www.yelp.com/search?find_desc=${encodeURIComponent(cleanName)}${city ? `&find_loc=${encodeURIComponent(city)}` : ''}`;
+    case 'yell':
+      return `https://www.yell.com/ucs/UcsSearchAction.do?keywords=${encodeURIComponent(cleanName)}${city ? `&location=${encodeURIComponent(city)}` : ''}`;
+    case 'checkatrade': {
+      const tradeSegment = toPathSegment(cleanName) || 'Tradesperson';
+      const citySegment = city ? toPathSegment(city) : '';
+      if (citySegment) {
+        return `https://www.checkatrade.com/Search/${tradeSegment}/in/${citySegment}`;
+      }
+      return `https://www.checkatrade.com/Search/${tradeSegment}`;
+    }
+    case 'trustatrader':
+      return 'https://www.trustatrader.com/trades';
+    case 'ratedpeople':
+      return 'https://www.ratedpeople.com/get-a-quote';
+    default: {
+      const domains = platformDomains[platformKey];
+      const site = domains?.[0]?.split('/')[0];
+      const siteQuery = site ? `site:${site}` : platformKey;
+      return `https://www.google.com/search?q=${encodeURIComponent(`${query} ${siteQuery}`.trim())}`;
+    }
+  }
+}
+
 // Search Google via Custom Search API to find actual business page URLs
-async function findUrlViaGoogleSearch(businessName: string, platform: string, address?: string): Promise<string | null> {
-  // Use GOOGLE_PLACES_API_KEY for Custom Search (same key)
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+async function findUrlViaGoogleSearch(
+  businessName: string,
+  platform: string,
+  address?: string,
+  request?: Request
+): Promise<string | null> {
+  // Prefer dedicated search key, fallback to places key
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
   const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID; // Custom Search Engine ID
   
   if (!apiKey) {
-    console.warn('GOOGLE_PLACES_API_KEY not configured, skipping Google Custom Search');
+    console.warn('GOOGLE_SEARCH_API_KEY/GOOGLE_PLACES_API_KEY not configured, skipping Google Custom Search');
     return null;
   }
   
@@ -583,8 +672,17 @@ async function findUrlViaGoogleSearch(businessName: string, platform: string, ad
     try {
       const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}&num=10`;
       
-      const response = await fetch(url, {
+      const response = await googleApiFetch(url, {
         signal: AbortSignal.timeout(8000),
+      }, {
+        service: 'custom_search',
+        action: 'Google Custom Search',
+        request,
+        source: 'places_social_media',
+        metadata: {
+          platform,
+          businessName,
+        },
       });
       
       if (!response.ok) {
@@ -745,11 +843,11 @@ export async function GET(request: NextRequest) {
     const searchQuery = `${businessName} ${address || ''}`.trim();
 
     if (!links.facebook) {
-      let facebookUrl = (await findUrlViaGoogleSearch(businessName, 'facebook', address ?? undefined)) ?? undefined;
+      let facebookUrl = (await findUrlViaGoogleSearch(businessName, 'facebook', address ?? undefined, request)) ?? undefined;
       
       // If Google Search didn't find it, try AI search
       if (!facebookUrl) {
-        facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined)) ?? undefined;
+        facebookUrl = (await findUrlViaAI(businessName, 'facebook', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
       // Second-level verification: check if page content matches business
@@ -760,14 +858,20 @@ export async function GET(request: NextRequest) {
           reviewUrl: `${cleanUrl}/reviews`,
           verified: true 
         };
+      } else {
+        links.facebook = {
+          searchUrl: buildPlatformSearchUrl('facebook', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // Instagram - search via Google Custom Search, then AI, only show if verified
     if (!links.instagram) {
-      let instagramUrl = (await findUrlViaGoogleSearch(businessName, 'instagram', address ?? undefined)) ?? undefined;
+      let instagramUrl = (await findUrlViaGoogleSearch(businessName, 'instagram', address ?? undefined, request)) ?? undefined;
       if (!instagramUrl) {
-        instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined)) ?? undefined;
+        instagramUrl = (await findUrlViaAI(businessName, 'instagram', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       // Second-level verification
       if (instagramUrl && await verifyUrlMatchesBusiness(instagramUrl, businessName, 5000)) {
@@ -775,14 +879,20 @@ export async function GET(request: NextRequest) {
           profileUrl: instagramUrl, 
           verified: true 
         };
+      } else {
+        links.instagram = {
+          searchUrl: buildPlatformSearchUrl('instagram', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // Twitter/X - search via Google Custom Search, then AI, only show if verified
     if (!links.twitter) {
-      let twitterUrl = (await findUrlViaGoogleSearch(businessName, 'twitter', address ?? undefined)) ?? undefined;
+      let twitterUrl = (await findUrlViaGoogleSearch(businessName, 'twitter', address ?? undefined, request)) ?? undefined;
       if (!twitterUrl) {
-        twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined)) ?? undefined;
+        twitterUrl = (await findUrlViaAI(businessName, 'twitter', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       // Second-level verification
       if (twitterUrl && await verifyUrlMatchesBusiness(twitterUrl, businessName, 5000)) {
@@ -790,14 +900,20 @@ export async function GET(request: NextRequest) {
           profileUrl: twitterUrl, 
           verified: true 
         };
+      } else {
+        links.twitter = {
+          searchUrl: buildPlatformSearchUrl('twitter', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // YouTube - search via Google Custom Search, then AI, only show if verified
     if (!links.youtube) {
-      let youtubeUrl = (await findUrlViaGoogleSearch(businessName, 'youtube', address ?? undefined)) ?? undefined;
+      let youtubeUrl = (await findUrlViaGoogleSearch(businessName, 'youtube', address ?? undefined, request)) ?? undefined;
       if (!youtubeUrl) {
-        youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined)) ?? undefined;
+        youtubeUrl = (await findUrlViaAI(businessName, 'youtube', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       // Second-level verification
       if (youtubeUrl && await verifyUrlMatchesBusiness(youtubeUrl, businessName, 5000)) {
@@ -805,14 +921,20 @@ export async function GET(request: NextRequest) {
           profileUrl: youtubeUrl, 
           verified: true 
         };
+      } else {
+        links.youtube = {
+          searchUrl: buildPlatformSearchUrl('youtube', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // TikTok - search via Google Custom Search, then AI, only show if verified
     if (!links.tiktok) {
-      let tiktokUrl = (await findUrlViaGoogleSearch(businessName, 'tiktok', address ?? undefined)) ?? undefined;
+      let tiktokUrl = (await findUrlViaGoogleSearch(businessName, 'tiktok', address ?? undefined, request)) ?? undefined;
       if (!tiktokUrl) {
-        tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined)) ?? undefined;
+        tiktokUrl = (await findUrlViaAI(businessName, 'tiktok', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       // Second-level verification
       if (tiktokUrl && await verifyUrlMatchesBusiness(tiktokUrl, businessName, 5000)) {
@@ -820,20 +942,32 @@ export async function GET(request: NextRequest) {
           profileUrl: tiktokUrl, 
           verified: true 
         };
+      } else {
+        links.tiktok = {
+          searchUrl: buildPlatformSearchUrl('tiktok', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // LinkedIn - search via Google Custom Search, then AI, only show if verified
     if (!links.linkedin) {
-      let linkedinUrl = (await findUrlViaGoogleSearch(businessName, 'linkedin', address ?? undefined)) ?? undefined;
+      let linkedinUrl = (await findUrlViaGoogleSearch(businessName, 'linkedin', address ?? undefined, request)) ?? undefined;
       if (!linkedinUrl) {
-        linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined)) ?? undefined;
+        linkedinUrl = (await findUrlViaAI(businessName, 'linkedin', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       // Second-level verification
       if (linkedinUrl && await verifyUrlMatchesBusiness(linkedinUrl, businessName, 5000)) {
         links.linkedin = { 
           profileUrl: linkedinUrl, 
           verified: true 
+        };
+      } else {
+        links.linkedin = {
+          searchUrl: buildPlatformSearchUrl('linkedin', businessName, address),
+          verified: false,
+          note: 'search',
         };
       }
     }
@@ -858,44 +992,48 @@ export async function GET(request: NextRequest) {
     
     // Trustpilot - ONLY use verified URLs, never guess
     // Priority: 1) Scraped from website, 2) Google Custom Search, 3) AI search
-    let trustpilotUrl = links.trustpilot?.reviewUrl || links.trustpilot?.profileUrl;
-    
-    if (!trustpilotUrl) {
-      // Try Google search via Google Custom Search
-      trustpilotUrl = (await findUrlViaGoogleSearch(businessName, 'trustpilot', address ?? undefined)) ?? undefined;
-    }
-    
-    if (!trustpilotUrl) {
-      // Try AI-powered search as last resort
-      trustpilotUrl = (await findUrlViaAI(businessName, 'trustpilot', address ?? undefined, website ?? undefined)) ?? undefined;
-    }
-    
-    // Second-level verification for Trustpilot
-    if (trustpilotUrl && await verifyUrlMatchesBusiness(trustpilotUrl, businessName, 5000)) {
-      links.trustpilot = {
-        profileUrl: trustpilotUrl,
-        reviewUrl: trustpilotUrl,
-        verified: true,
-      };
-    } else {
-      delete links.trustpilot; // Remove if verification failed
+    if (!links.trustpilot) {
+      let trustpilotUrl = (await findUrlViaGoogleSearch(businessName, 'trustpilot', address ?? undefined, request)) ?? undefined;
+      
+      if (!trustpilotUrl) {
+        trustpilotUrl = (await findUrlViaAI(businessName, 'trustpilot', address ?? undefined, website ?? undefined, request)) ?? undefined;
+      }
+      
+      if (trustpilotUrl && await verifyUrlMatchesBusiness(trustpilotUrl, businessName, 5000)) {
+        links.trustpilot = {
+          profileUrl: trustpilotUrl,
+          reviewUrl: trustpilotUrl,
+          verified: true,
+        };
+      } else {
+        links.trustpilot = {
+          searchUrl: buildPlatformSearchUrl('trustpilot', businessName, address),
+          verified: false,
+          note: 'search',
+        };
+      }
     }
 
     // TripAdvisor - search for all businesses
     // ONLY use verified URLs, never guess
     if (!links.tripadvisor) {
-      let tripadvisorUrl = (await findUrlViaGoogleSearch(businessName, 'tripadvisor', address ?? undefined)) ?? undefined;
+      let tripadvisorUrl = (await findUrlViaGoogleSearch(businessName, 'tripadvisor', address ?? undefined, request)) ?? undefined;
       
       if (!tripadvisorUrl) {
-        tripadvisorUrl = (await findUrlViaAI(businessName, 'tripadvisor', address ?? undefined, website ?? undefined)) ?? undefined;
+        tripadvisorUrl = (await findUrlViaAI(businessName, 'tripadvisor', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
-      // Only include if verified AND page content matches business name
       if (tripadvisorUrl && await verifyUrlMatchesBusiness(tripadvisorUrl, businessName)) {
         links.tripadvisor = {
           profileUrl: tripadvisorUrl,
           reviewUrl: tripadvisorUrl,
           verified: true,
+        };
+      } else {
+        links.tripadvisor = {
+          searchUrl: buildPlatformSearchUrl('tripadvisor', businessName, address),
+          verified: false,
+          note: 'search',
         };
       }
     }
@@ -903,28 +1041,33 @@ export async function GET(request: NextRequest) {
     // Yelp - search for all businesses
     // ONLY use verified URLs, never guess
     if (!links.yelp) {
-      let yelpUrl = (await findUrlViaGoogleSearch(businessName, 'yelp', address ?? undefined)) ?? undefined;
+      let yelpUrl = (await findUrlViaGoogleSearch(businessName, 'yelp', address ?? undefined, request)) ?? undefined;
       
       if (!yelpUrl) {
-        yelpUrl = (await findUrlViaAI(businessName, 'yelp', address ?? undefined, website ?? undefined)) ?? undefined;
+        yelpUrl = (await findUrlViaAI(businessName, 'yelp', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
-      // Only include if verified AND page content matches business name
       if (yelpUrl && await verifyUrlMatchesBusiness(yelpUrl, businessName)) {
         links.yelp = {
           profileUrl: yelpUrl,
           reviewUrl: yelpUrl,
           verified: true,
         };
+      } else {
+        links.yelp = {
+          searchUrl: buildPlatformSearchUrl('yelp', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // Yell - search for all businesses
     if (!links.yell) {
-      let yellUrl = (await findUrlViaGoogleSearch(businessName, 'yell', address ?? undefined)) ?? undefined;
+      let yellUrl = (await findUrlViaGoogleSearch(businessName, 'yell', address ?? undefined, request)) ?? undefined;
       
       if (!yellUrl) {
-        yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined)) ?? undefined;
+        yellUrl = (await findUrlViaAI(businessName, 'yell', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
       if (yellUrl && await verifyUrlMatchesBusiness(yellUrl, businessName)) {
@@ -933,15 +1076,21 @@ export async function GET(request: NextRequest) {
           reviewUrl: yellUrl,
           verified: true,
         };
+      } else {
+        links.yell = {
+          searchUrl: buildPlatformSearchUrl('yell', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // Checkatrade - search for all businesses
     if (!links.checkatrade) {
-      let checkatradeUrl = (await findUrlViaGoogleSearch(businessName, 'checkatrade', address ?? undefined)) ?? undefined;
+      let checkatradeUrl = (await findUrlViaGoogleSearch(businessName, 'checkatrade', address ?? undefined, request)) ?? undefined;
       
       if (!checkatradeUrl) {
-        checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined)) ?? undefined;
+        checkatradeUrl = (await findUrlViaAI(businessName, 'checkatrade', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
       if (checkatradeUrl && await verifyUrlMatchesBusiness(checkatradeUrl, businessName)) {
@@ -950,15 +1099,21 @@ export async function GET(request: NextRequest) {
           reviewUrl: checkatradeUrl,
           verified: true,
         };
+      } else {
+        links.checkatrade = {
+          searchUrl: buildPlatformSearchUrl('checkatrade', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // Rated People - search for all businesses
     if (!links.ratedpeople) {
-      let ratedpeopleUrl = (await findUrlViaGoogleSearch(businessName, 'ratedpeople', address ?? undefined)) ?? undefined;
+      let ratedpeopleUrl = (await findUrlViaGoogleSearch(businessName, 'ratedpeople', address ?? undefined, request)) ?? undefined;
       
       if (!ratedpeopleUrl) {
-        ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined)) ?? undefined;
+        ratedpeopleUrl = (await findUrlViaAI(businessName, 'ratedpeople', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
       if (ratedpeopleUrl && await verifyUrlMatchesBusiness(ratedpeopleUrl, businessName)) {
@@ -967,15 +1122,21 @@ export async function GET(request: NextRequest) {
           reviewUrl: ratedpeopleUrl,
           verified: true,
         };
+      } else {
+        links.ratedpeople = {
+          searchUrl: buildPlatformSearchUrl('ratedpeople', businessName, address),
+          verified: false,
+          note: 'search',
+        };
       }
     }
 
     // TrustATrader - search for all businesses
     if (!links.trustatrader) {
-      let trustatraderUrl = (await findUrlViaGoogleSearch(businessName, 'trustatrader', address ?? undefined)) ?? undefined;
+      let trustatraderUrl = (await findUrlViaGoogleSearch(businessName, 'trustatrader', address ?? undefined, request)) ?? undefined;
       
       if (!trustatraderUrl) {
-        trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined)) ?? undefined;
+        trustatraderUrl = (await findUrlViaAI(businessName, 'trustatrader', address ?? undefined, website ?? undefined, request)) ?? undefined;
       }
       
       if (trustatraderUrl && await verifyUrlMatchesBusiness(trustatraderUrl, businessName)) {
@@ -983,6 +1144,12 @@ export async function GET(request: NextRequest) {
           profileUrl: trustatraderUrl,
           reviewUrl: trustatraderUrl,
           verified: true,
+        };
+      } else {
+        links.trustatrader = {
+          searchUrl: buildPlatformSearchUrl('trustatrader', businessName, address),
+          verified: false,
+          note: 'search',
         };
       }
     }

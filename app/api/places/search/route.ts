@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { googleApiFetch } from '@/lib/google-api';
 
 type GoogleCallCounts = {
   total: number;
@@ -14,7 +15,12 @@ type GoogleCallType = 'nearbySearch' | 'placeDetails';
 async function fetchPlaceDetails(
   placeId: string, 
   apiKey: string, 
-  trackCall?: (type: GoogleCallType) => void
+  trackCall?: (type: GoogleCallType) => void,
+  logContext?: {
+    request?: Request;
+    debugId?: string;
+    debugContext?: string;
+  }
 ): Promise<{ website?: string; phone?: string } | null> {
   try {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
@@ -23,7 +29,17 @@ async function fetchPlaceDetails(
     url.searchParams.append('key', apiKey);
 
     trackCall?.('placeDetails');
-    const response = await fetch(url.toString());
+    const response = await googleApiFetch(url.toString(), {}, {
+      service: 'places_details',
+      action: 'Google Places Details',
+      request: logContext?.request,
+      requestId: logContext?.debugId,
+      context: logContext?.debugContext,
+      source: 'places_search',
+      metadata: {
+        placeId,
+      },
+    });
     const data = await response.json();
 
     if (data.status === 'OK' && data.result) {
@@ -111,7 +127,20 @@ export async function GET(request: Request) {
         ? `${url.toString()}&pagetoken=${nextPageToken}`
         : url.toString();
       trackCall('nearbySearch');
-      const response = await fetch(fetchUrl);
+      const response = await googleApiFetch(fetchUrl, {}, {
+        service: 'places_nearbysearch',
+        action: 'Google Places Nearby Search',
+        request,
+        requestId: debugId,
+        context: debugContext,
+        source: 'places_search',
+        metadata: {
+          pageToken: nextPageToken,
+          rankBy,
+          radius,
+          keyword: keyword || undefined,
+        },
+      });
       const data = await response.json();
 
       if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
@@ -147,7 +176,11 @@ export async function GET(request: Request) {
                   Math.sin(Δλ/2) * Math.sin(Δλ/2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const distance = R * c;
-        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall);
+        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall, {
+          request,
+          debugId,
+          debugContext,
+        });
         return {
           placeId: place.place_id,
           name: place.name,

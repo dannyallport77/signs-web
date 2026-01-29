@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { googleApiFetch } from '@/lib/google-api';
 
 type GoogleCallCounts = {
   total: number;
@@ -30,7 +31,12 @@ interface SocialMediaLinks {
 async function fetchPlaceDetails(
   placeId: string, 
   apiKey: string, 
-  trackCall?: (type: GoogleCallType) => void
+  trackCall?: (type: GoogleCallType) => void,
+  logContext?: {
+    request?: Request;
+    debugId?: string;
+    debugContext?: string;
+  }
 ): Promise<{ website?: string; phone?: string } | null> {
   try {
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
@@ -39,7 +45,17 @@ async function fetchPlaceDetails(
     url.searchParams.append('key', apiKey);
 
     trackCall?.('placeDetails');
-    const response = await fetch(url.toString());
+    const response = await googleApiFetch(url.toString(), {}, {
+      service: 'places_details',
+      action: 'Google Places Details',
+      request: logContext?.request,
+      requestId: logContext?.debugId,
+      context: logContext?.debugContext,
+      source: 'places_text_search',
+      metadata: {
+        placeId,
+      },
+    });
     const data = await response.json();
 
     if (data.status === 'OK' && data.result) {
@@ -130,7 +146,17 @@ export async function GET(request: Request) {
     url.searchParams.append('key', apiKey);
 
     trackCall('textSearch');
-    const response = await fetch(url.toString());
+    const response = await googleApiFetch(url.toString(), {}, {
+      service: 'places_textsearch',
+      action: 'Google Places Text Search',
+      request,
+      requestId: debugId,
+      context: debugContext,
+      source: 'places_text_search',
+      metadata: {
+        query,
+      },
+    });
     const data = await response.json();
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
@@ -159,7 +185,11 @@ export async function GET(request: Request) {
     const places = await Promise.all(
       results.map(async (place: any) => {
         // Fetch place details for website (Text Search doesn't return it)
-        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall);
+        const placeDetails = await fetchPlaceDetails(place.place_id, apiKey, trackCall, {
+          request,
+          debugId,
+          debugContext,
+        });
         
         const basePlace = {
           placeId: place.place_id,

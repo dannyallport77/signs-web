@@ -78,6 +78,8 @@ const TYPE_LABELS: Record<string, string> = {
   admin_action: '⚙️ Admin Action',
   // Errors
   api_error: '❌ API Error',
+  // External APIs
+  google_api_call: '🌐 Google API Call',
   // Mobile app events
   app_opened: '📱 App Opened',
   map_refreshed: '🗺️ Map Refreshed',
@@ -88,6 +90,23 @@ const TYPE_LABELS: Record<string, string> = {
   smart_link_created: '🔗 Smart Link Created',
 };
 
+const SERVICE_LABELS: Record<string, string> = {
+  places_textsearch: 'Places Text Search',
+  places_nearbysearch: 'Places Nearby Search',
+  places_details: 'Places Details',
+  custom_search: 'Custom Search',
+  gemini_generate_content: 'Gemini generateContent',
+};
+
+const SERVICE_OPTIONS = [
+  { value: '', label: 'All Services' },
+  { value: 'places_textsearch', label: 'Places Text Search' },
+  { value: 'places_nearbysearch', label: 'Places Nearby Search' },
+  { value: 'places_details', label: 'Places Details' },
+  { value: 'custom_search', label: 'Custom Search' },
+  { value: 'gemini_generate_content', label: 'Gemini generateContent' },
+];
+
 // Group types by category for the dropdown
 const TYPE_CATEGORIES = {
   'Authentication': ['auth_failed', 'auth_success', 'auth_logout'],
@@ -96,6 +115,7 @@ const TYPE_CATEGORIES = {
   'Business': ['transaction_created', 'invoice_sent', 'business_selected'],
   'Mobile App': ['app_opened', 'map_refreshed', 'platforms_selected', 'website_link_toggled', 'wifi_credentials_set', 'smart_link_created'],
   'System': ['admin_action', 'api_error', 'password_reset_requested', 'password_reset_completed'],
+  'External APIs': ['google_api_call'],
 };
 
 export default function ActivityLogsPage() {
@@ -106,6 +126,7 @@ export default function ActivityLogsPage() {
   const [filter, setFilter] = useState({
     type: '',
     severity: '',
+    service: '',
     startDate: '',
     endDate: '',
   });
@@ -144,6 +165,7 @@ export default function ActivityLogsPage() {
       params.append('offset', (page * limit).toString());
       if (filter.type) params.append('type', filter.type);
       if (filter.severity) params.append('severity', filter.severity);
+      if (filter.service) params.append('service', filter.service);
       if (filter.startDate) params.append('startDate', filter.startDate);
       if (filter.endDate) params.append('endDate', filter.endDate);
 
@@ -203,7 +225,7 @@ export default function ActivityLogsPage() {
   };
 
   const clearFilters = () => {
-    setFilter({ type: '', severity: '', startDate: '', endDate: '' });
+    setFilter({ type: '', severity: '', service: '', startDate: '', endDate: '' });
     setPage(0);
   };
 
@@ -216,7 +238,7 @@ export default function ActivityLogsPage() {
   };
 
   const totalPages = Math.ceil(total / limit);
-  const hasActiveFilters = filter.type || filter.severity || filter.startDate || filter.endDate;
+  const hasActiveFilters = filter.type || filter.severity || filter.service || filter.startDate || filter.endDate;
 
   return (
     <div className="space-y-6">
@@ -322,7 +344,7 @@ export default function ActivityLogsPage() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
             <select
@@ -353,6 +375,18 @@ export default function ActivityLogsPage() {
               }`}
             >
               {SEVERITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">API Service</label>
+            <select
+              value={filter.service}
+              onChange={(e) => { setFilter({ ...filter, service: e.target.value }); setPage(0); }}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              {SERVICE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
@@ -428,6 +462,8 @@ export default function ActivityLogsPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
@@ -436,14 +472,14 @@ export default function ActivityLogsPage() {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center">
+                  <td colSpan={8} className="px-4 py-8 text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-2 text-sm text-gray-500">Loading activity logs...</p>
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     <svg className="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -479,6 +515,22 @@ export default function ActivityLogsPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {TYPE_LABELS[log.type] || log.type}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {log.metadata?.service ? (SERVICE_LABELS[log.metadata.service] || log.metadata.service) : '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {log.metadata?.status ? (
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${
+                            log.metadata.status >= 500 ? 'bg-red-100 text-red-800' :
+                            log.metadata.status >= 400 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {log.metadata.status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900 max-w-md">
                         <div className={`truncate ${log.severity === 'error' || log.severity === 'critical' ? 'text-red-700 font-medium' : ''}`} title={log.action}>
@@ -524,7 +576,7 @@ export default function ActivityLogsPage() {
                     </tr>
                     {expandedRows.has(log.id) && log.metadata && (
                       <tr key={`${log.id}-details`} className="bg-gray-50">
-                        <td colSpan={6} className="px-4 py-3">
+                        <td colSpan={8} className="px-4 py-3">
                           <div className="text-sm">
                             <div className="font-medium text-gray-700 mb-3">Event Details</div>
                             
